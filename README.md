@@ -37,6 +37,14 @@ npm install
 
 This repository uses separate config files for different scripts.
 
+### credentials.yaml
+
+In the root directory, this file is shared by all apps.
+
+It contains:
+- Spotify credentials
+- optional Last.fm credentials
+
 ### `daily/config.yaml`
 
 Used by `daily/index.js`.
@@ -55,35 +63,33 @@ Used by `top/index.js`.
 
 This file controls things like:
 
-- Last.fm username
-- Last.fm API key
 - Spotify target playlists
 - track counts for week / month / year / all-time charts
 
 ## Before you begin
 
-CD into the directory for the script you want to use, and copy the example configuration file.
+Copy the example config file for the app you wish to use. For example:
 
 ```bash
-cp config.example.yaml config.yaml
+cp daily/config.example.yaml daily/config.yaml
 ```
 
-Then fill in your credentials and configure the playlists you want to create.
+Fill in the relevent details.
 
 ## Authentication setup
 
-Back in the root directory, run `setup.js` with the appropriate config file as a parameter.
-
-For example:
+Copy the example credentials file:
 
 ```bash
-node setup.js daily/config.yaml
+cp credentials.example.yaml credentials.yaml
 ```
 
-or
+Fill in your Spotify credentials and Last.fm credentials as appropriate.
+
+Run `setup.js`:
 
 ```bash
-node setup.js top/config.yaml
+node setup.js
 ```
 
 Both apps in the `polkadotradio` directory share the same Spotify authentication flow, so if they use the same Spotify app credentials, you generally only need to run setup once.
@@ -174,13 +180,7 @@ Spotify rate-limited the app. The scripts may retry automatically, but very larg
 Your Spotify refresh token has expired. Rerun setup:
 
 ```bash
-node setup.js daily/config.yaml
-```
-
-or
-
-```bash
-node setup.js top/config.yaml
+node setup.js
 ```
 
 depending on which config you are using.
