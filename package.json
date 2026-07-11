@@ -1,0 +1,20 @@
+{
+  "name": "polkadotradio",
+  "version": "1.0.0",
+  "description": "Tools for building customized Spotify playlists",
+  "main": "daily.js",
+  "keywords": ["spotify", "daily-drive", "playlist", "podcast", "automation", "custom", "lastfm"],
+  "license": "MIT",
+  "scripts": {
+    "setup:daily": "node setup.js daily/config.yaml",
+    "setup:top": "node setup.js top/config.yaml",
+    "daily": "node daily/index.js",
+    "top": "node top/index.js"
+  },
+  "dependencies": {
+    "js-yaml": "^4.1.0",
+    "spotify-web-api-node": "^5.0.2",
+    "express": "^4.21.0",
+    "open": "^10.1.0"
+  }
+}

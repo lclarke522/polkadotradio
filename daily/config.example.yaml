@@ -1,0 +1,39 @@
+spotify:
+  client_id: "your-client-id-here"
+  client_secret: "your-client-secret-here"
+  redirect_uri: "http://127.0.0.1:8888/callback"
+
+# Morning Coffee (--morning or no arguments)
+# Example configuration:
+# news_id:   "6BRSvIBNQnB68GuoXJRCnQ" Starts off with an episode of NPR News Now
+# lead_id:   "3kYrYcxSi2YNUjKwMW168n" Plays one random song from Morning Music
+# source_id: "3mep8nHY5bNsIYaaG3PdnT" Adds two hours of random tracks from
+#                                     Polka Dot Radio Caffeinated
+morning:
+  news_id: ""     # optional, start with the latest episode from a podcast
+  lead_id: ""     # optional, start with a random track from a different playlist
+  source_id: ""   # source playlist ID - something with energetic songs?
+  target_id: ""   # target playlist ID - playlist you created for this purpose
+  minutes: 120    # roughly how long the playlist should run
+ 
+# Afternoon Focus (--afternoon)
+# Example configuration:
+# source_id: "5a3CuQIisdLAd4MeQJyv4o" Chooses two hours of random tracks from
+#                                     Instrumental Work Music
+afternoon:
+  news_id: ""     # optional, start with the latest episode from a podcast
+  lead_id: ""     # optional, start with a random track from a different playlist
+  source_id: ""   # source playlist ID - something with instrumental songs?
+  target_id: ""   # target playlist ID - playlist you created for this purpose
+  minutes: 120    # roughly how long the playlist should run
+ 
+# Evening Unwind (--evening)
+# Example configuration:
+# source_id: "6Zh5yI9bM89Zkpl26jucC5" Chooses two hours of random tracks from
+#                                     Quiet Bedtime Music
+evening:
+  news_id: ""     # optional, start with the latest episode from a podcast
+  lead_id: ""     # optional, start with a random track from a different playlist
+  source_id: ""   # source playlist ID - something with relaxing songs?
+  target_id: ""   # target playlist ID - playlist you created for this purpose
+  minutes: 120    # roughly how long the playlist should run

@@ -1,0 +1,23 @@
+# This sample crontab assumes three things:
+#    1. The cron is only running while the computer is on, roughly 7:30-4:30 weekdays,
+#    2. Morning Coffee is fully refreshed (music+podcast) when the computer boots up.
+#       As such, only a podcast refresh is needed at other times of day
+#    3. Afternoon Focus and Evening Unwind do not have leading podcast episodes.
+#
+# Remove dailylog.txt prior to 8:30am run
+29  8  * * * cd ~/polkadotradio/daily && rm log.txt
+#
+# Morning Coffee, refresh podcast episode every day, every two hours
+30 */2 * * * cd ~/polkadotradio/daily && /usr/bin/node index.js --morning --podcast-only >> log.txt
+#
+# Afternoon Focus, every day at Noon
+0  12  * * * cd ~/polkadotradio/daily && /usr/bin/node index.js --afternoon >> log.txt
+#
+# Evening Unwind, every day at 4pm
+0  16  * * * cd ~/polkadotradio/daily && /usr/bin/node index.js --evening >> log.txt
+#
+# Top Tracks, every day at 10am, except All Time, once-a-week
+0  10  * * * cd ~/polkadotradio/top && /usr/bin/node index.js --year > log.txt
+10 10  * * * cd ~/polkadotradio/top && /usr/bin/node index.js --month >> log.txt
+20 10  * * * cd ~/polkadotradio/top && /usr/bin/node index.js --week >> log.txt
+30 10  * * 2 cd ~/polkadotradio/top && /usr/bin/node index.js --all >> log.txt
