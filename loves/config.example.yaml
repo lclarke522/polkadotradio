@@ -1,0 +1,23 @@
+# Copy this file to loves/config.yaml.
+
+# Fill in the details. Create the empty playlist first,
+# and right-click > Share > Copy link to get the 
+# playlist ID. The ID is the part after "playlist/"
+# in the URL. You can change the other values, too.
+
+# Default settings updates your Loved Artists playlist with up to 50
+# tracks: 10 each from your top five artists of the last 12 months as 
+# scrobbled to Last.fm. Tracks are selected randomly from the top 750 
+# tracks of that time period.
+#
+# Additional artists may optionally be included.
+#
+# Supported periods: overall, 7day, 1month, 3month, 6month, 12month
+loves:
+  period: 12month
+  top_artist_count: 5
+  tracks_per_artist: 10
+  track_pool_size: 750
+  lastfm_page_size: 100
+  playlist_id: "your-loves-playlist-id"
+  include_artists: []

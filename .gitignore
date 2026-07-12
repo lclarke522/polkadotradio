@@ -6,6 +6,7 @@ spotify-token.json
 
 # User config — contains client_id, client_secret, playlist IDs
 */config.yaml
+*config.yaml
 credentials.yaml
 
 # --- State & Runtime Data ---

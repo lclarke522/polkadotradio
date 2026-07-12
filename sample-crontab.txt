@@ -21,3 +21,6 @@
 10 10  * * * cd ~/polkadotradio/top && /usr/bin/node index.js --month >> log.txt
 20 10  * * * cd ~/polkadotradio/top && /usr/bin/node index.js --week >> log.txt
 30 10  * * 2 cd ~/polkadotradio/top && /usr/bin/node index.js --all >> log.txt
+#
+# Loved Artists, Fridays at 9am
+0  9   * * 6 cd ~/polkadotradio && /usr/bin/node loves.js >> lovelog.txt

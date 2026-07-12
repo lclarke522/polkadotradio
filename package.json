@@ -6,10 +6,10 @@
   "keywords": ["spotify", "daily-drive", "playlist", "podcast", "automation", "custom", "lastfm"],
   "license": "MIT",
   "scripts": {
-    "setup:daily": "node setup.js daily/config.yaml",
-    "setup:top": "node setup.js top/config.yaml",
+    "setup": "node setup.js",
     "daily": "node daily/index.js",
-    "top": "node top/index.js"
+    "top": "node top/index.js",
+    "loves": "node loves/index.js"
   },
   "dependencies": {
     "js-yaml": "^4.1.0",
