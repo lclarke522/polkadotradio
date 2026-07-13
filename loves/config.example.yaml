@@ -7,15 +7,17 @@
 
 # Default settings updates your Loved Artists playlist with up to 50
 # tracks: 10 each from your top five artists of the last 12 months as 
-# scrobbled to Last.fm. Tracks are selected randomly from the top 750 
+# scrobbled to Last.fm over the life of your Last.fm account.
+# Tracks are selected randomly from the top 750 
 # tracks of that time period.
 #
 # Additional artists may optionally be included.
 #
 # Supported periods: overall, 7day, 1month, 3month, 6month, 12month
 loves:
-  period: 12month
+  artist_period: 12month
   top_artist_count: 5
+  track_period: overall
   tracks_per_artist: 10
   track_pool_size: 750
   lastfm_page_size: 100

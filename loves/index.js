@@ -121,8 +121,13 @@ function validateConfig(config) {
   const topArtistCount = config.loves.top_artist_count ?? 5;
   const includeArtists = config.loves.include_artists || [];
   
-  if (!validPeriod.includes(config.loves.period)) {
-    console.error('❌ Period must be one of 7day, 1month, 3month, 6month, 12month, or overall');
+  if (!validPeriod.includes(config.loves.artist_period)) {
+    console.error('❌ Artist period must be one of 7day, 1month, 3month, 6month, 12month, or overall');
+    process.exit(1);
+  }
+
+  if (!validPeriod.includes(config.loves.track_period)) {
+    console.error('❌ Track period must be one of 7day, 1month, 3month, 6month, 12month, or overall');
     process.exit(1);
   }
 
@@ -165,12 +170,14 @@ function normalizeArtistName(name) {
 async function getTopArtists(credentials, config) {
   
   if (config.loves.top_artist_count === 0) { return []; }
+  const periodTxt = PERIOD_LABELS[config.loves.artist_period];
   
+  console.log('🎵 Fetching ' + config.loves.top_artist_count + ' top artist(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
   const res = await request({
     hostname: 'ws.audioscrobbler.com',
     path: '/2.0/?method=user.getTopArtists' +
       '&user=' + encodeURIComponent(credentials.lastfm.username) +
-      '&period=' + config.loves.period +
+      '&period=' + config.loves.artist_period +
       '&limit=' + config.loves.top_artist_count +
       '&api_key=' + credentials.lastfm.api_key +
       '&format=json',
@@ -184,7 +191,6 @@ async function getTopArtists(credentials, config) {
   }
   
   const artists = data.topartists.artist;
-  console.log('✅ Got ' + artists.length + ' top artist(s) from Last.fm');
 
   return artists.map(a => ({
     name: a.name,
@@ -228,10 +234,10 @@ async function getLastFmTopTracks(credentials,config) {
 
   const limit = config.loves.track_pool_size || 100;
   const pagesize = config.loves.lastfm_page_size || 50;
-  const period = config.loves.period || '12month';
-  const periodTxt = PERIOD_LABELS[config.loves.period];
+  const period = config.loves.track_period || 'overall';
+  const periodTxt = PERIOD_LABELS[config.loves.track_period];
 
-  console.log('🎵 Fetching top ' + limit + ' tracks for "' + credentials.lastfm.username + '" (' + periodTxt + ') from Last.fm...');
+  console.log('🎵 Fetching ' + limit + ' top track(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
 
   let hasMore = true;
   let page = 1;
