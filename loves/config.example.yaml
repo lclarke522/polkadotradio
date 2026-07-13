@@ -11,11 +11,15 @@
 # Tracks are selected randomly from the top 750 
 # tracks of that time period.
 #
+# Set track_period differently from artist_period if you want to find artists
+# you're into *right now* but pull from their tracks you've loved *all-time* —
+# rather than just the ones you've played this month.
+#
 # Additional artists may optionally be included.
 #
 # Supported periods: overall, 7day, 1month, 3month, 6month, 12month
 loves:
-  artist_period: 12month
+  artist_period: 1month
   top_artist_count: 5
   track_period: overall
   tracks_per_artist: 10
