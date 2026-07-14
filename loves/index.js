@@ -2,7 +2,8 @@
 
 // loves/index.js
 // Polka Dot Radio Loved Artists by Lisa R. Clarke
-// Fetches tracks by your most-played artists from Last.fm and updates a Spotify playlist.
+// Fetches your most-played artists (over one period) and their most-played
+// tracks (over a possibly different period), then updates a Spotify playlist.
 //
 // Usage: node loves/index.js 
 
@@ -153,14 +154,19 @@ function validateConfig(config) {
     console.error('❌ Must specify playlist_id in config.yaml');
     process.exit(1);
   }
+  
+  if (!Number.isInteger(config.loves.track_pool_size) || config.loves.track_pool_size < 1) {
+  console.error('❌ track_pool_size must be a positive integer');
+  process.exit(1);
+  }
+  if (!Number.isInteger(config.loves.lastfm_page_size) || config.loves.lastfm_page_size < 1) {
+    console.error('❌ lastfm_page_size must be a positive integer');
+    process.exit(1);
+  }
 }
 
-function simpleNormalize(name) {
-  return name.toLowerCase().trim();
-}
-
-function normalizeArtistName(name) {
-  return name
+function normalizeString(str) {
+  return str
     .toLowerCase()
     .trim()
     .replace(/\s+/g, ' ')
@@ -190,18 +196,20 @@ async function getTopArtists(credentials, config) {
     process.exit(1);
   }
   
-  const artists = data.topartists.artist;
-
+  const artists = Array.isArray(data.topartists.artist)
+    ? data.topartists.artist
+    : data.topartists.artist ? [data.topartists.artist] : [];
+  
   return artists.map(a => ({
     name: a.name,
-    matchkey: normalizeArtistName(a.name),
+    matchkey: normalizeString(a.name),
     mbid: a.mbid || null,
     rank: parseInt(a['@attr']?.rank, 10) || null,
     playcount: parseInt(a.playcount, 10) || null,
   }));
 }
 
-function artistDedup(combinedArtists) {
+function dedupArtists(combinedArtists) {
   let dedupedArtists = [];
 
   for (let i=0; i<combinedArtists.length; i++) {
@@ -221,6 +229,21 @@ function artistDedup(combinedArtists) {
 return dedupedArtists;
 }
 
+function dedupTracks(tracks) {
+  const seen = new Map();
+
+  for (const track of tracks) {
+    const key = track.artistMatchkey + '|' + normalizeString(track.name);
+    const existing = seen.get(key);
+
+    if (!existing || track.playcount > existing.playcount) {
+      seen.set(key, track);
+    }
+  }
+
+  return [...seen.values()];
+}
+
 function shuffle(array) {
   const arr = [...array];
   for (let i = arr.length - 1; i > 0; i--) {
@@ -233,7 +256,7 @@ function shuffle(array) {
 async function getLastFmTopTracks(credentials,config) {
 
   const limit = config.loves.track_pool_size || 100;
-  const pagesize = config.loves.lastfm_page_size || 50;
+  const pagesize = config.loves.lastfm_page_size || 100;
   const period = config.loves.track_period || 'overall';
   const periodTxt = PERIOD_LABELS[config.loves.track_period];
 
@@ -276,8 +299,10 @@ async function getLastFmTopTracks(credentials,config) {
   return tracks.map(t => ({
     name: t.name,
     artist: t.artist.name.replace(/\s*\(from .+?\)\s*$/i, '').trim(),
+    artistMbid: t.artist.mbid || null,
+    artistMatchkey: normalizeString(t.artist.name.replace(/\s*\(from .+?\)\s*$/i, '').trim()),
     playcount: parseInt(t.playcount, 10),
-    rank: parseInt(t['@attr'].rank, 10),
+    rank: parseInt(t['@attr']?.rank, 10),
   }));
 }
 
@@ -287,9 +312,26 @@ async function getLastFmTopTracks(credentials,config) {
 async function searchSpotifyTrack(track, accessToken) {
   const q = encodeURIComponent(`track:"${track.name}" artist:"${track.artist}"`);
   try {
-    const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=1', accessToken);
+    const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=5', accessToken);
     const items = data.tracks?.items ?? [];
-    return items.length > 0 ? items[0].uri : null;
+
+    const expectedArtistKey = normalizeString(track.artist);
+    const expectedTitleKey = normalizeString(track.name);
+
+    const goodMatch = items.find(item => {
+      const artistMatch = item.artists.some(a => normalizeString(a.name) === expectedArtistKey);
+      const titleMatch = normalizeString(item.name) === expectedTitleKey;
+      return artistMatch && titleMatch;
+    });
+
+    if (!goodMatch) {
+      if (items.length > 0) {
+        console.log('   ⚠️  No exact match for "' + track.name + '" by ' + track.artist + ' (closest: "' + items[0].name + '" by ' + items[0].artists.map(a => a.name).join(', ') + '); skipping.');
+      }
+      return null;
+    }
+
+    return goodMatch.uri;
   } catch (err) {
     console.error('\n❌ Search error for "' + track.name + '": ' + err.message);
     if (err.message.includes('401')) {
@@ -299,7 +341,6 @@ async function searchSpotifyTrack(track, accessToken) {
     return null;
   }
 }
-
 // ─── Spotify playlist update ──────────────────────────────────────────────────
 
 async function updatePlaylist(playlistId, uris, accessToken) {
@@ -359,34 +400,42 @@ async function main() {
   if (includeArtists.length > 0) {
     const manualArtists = includeArtists.map(name => ({
       name,
-      matchkey: normalizeArtistName(name),
+      matchkey: normalizeString(name),
       mbid: null,
       rank: null,
       playcount: null,
     }));
 
     const combinedArtists = [...topArtists, ...manualArtists];
-    finalArtists = artistDedup(combinedArtists);
+    finalArtists = dedupArtists(combinedArtists);
   } else {
   finalArtists = topArtists;
   }
   
   const trackPool = await getLastFmTopTracks(credentials,config);
   
-  const selectedNames = new Set(finalArtists.map(a => simpleNormalize(a.name)));
+  const artistMbids = new Set(finalArtists.filter(a => a.mbid).map(a => a.mbid));
+  const artistMatchkeys = new Set(finalArtists.map(a => a.matchkey));
 
-  const filteredTracks = trackPool.filter(track =>
-    selectedNames.has(simpleNormalize(track.artist))
-  );
-
+  const filteredTracks = trackPool.filter(track => {
+    const mbidMatch = track.artistMbid && artistMbids.has(track.artistMbid);
+    const nameMatch = artistMatchkeys.has(track.artistMatchkey);
+    return mbidMatch || nameMatch;
+  });
   console.log('✅ Filtered to ' + filteredTracks.length + ' tracks by your selected artists.\n');
-    
+
+  const dedupedTracks = dedupTracks(filteredTracks);
+  console.log('✅ Removed duplicate tracks: ' + dedupedTracks.length + ' remaining.\n');
+  
   const tracksPerArtist = config.loves.tracks_per_artist;
   const selectedTracks = [];
 
   for (const artist of finalArtists) {
-    const key = simpleNormalize(artist.name);
-    const candidates = filteredTracks.filter(t => simpleNormalize(t.artist) === key);
+    const candidates = dedupedTracks.filter(t => {
+      const mbidMatch = artist.mbid && t.artistMbid === artist.mbid;
+      const nameMatch = t.artistMatchkey === artist.matchkey;
+      return mbidMatch || nameMatch;
+    });
     const shuffled = shuffle(candidates);
     const picked = shuffled.slice(0, tracksPerArtist);
 
