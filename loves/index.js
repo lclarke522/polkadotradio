@@ -12,6 +12,7 @@ const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
 const { spotifyGet, spotifyPut, spotifyPost } = require('../lib/spotify');
+const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -21,6 +22,8 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(APP_DIR, 'config.yaml');
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
+
+const DRY_RUN = process.argv.includes('--dry-run');
 
 const PERIOD_LABELS = {
   '7day': 'for the last 7 days',
@@ -113,11 +116,20 @@ async function getAccessToken(credentials) {
 
 
 function validateConfig(config) {
+  const args = process.argv.slice(2);
+  const validFlags = new Set(['--dry-run']);
+  const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
+  if (unknownFlags.length > 0) {
+    console.error(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
+    console.error('   Only valid flag is: --dry-run');
+    process.exit(1);
+  }
+
   if (!config.loves) {
     console.error('❌ config.yaml is missing the top-level "loves:" section.');
     process.exit(1);
   }
-
+  
   const validPeriod = Object.keys(PERIOD_LABELS);
   const topArtistCount = config.loves.top_artist_count ?? 5;
   const includeArtists = config.loves.include_artists || [];
@@ -163,6 +175,7 @@ function validateConfig(config) {
     console.error('❌ lastfm_page_size must be a positive integer');
     process.exit(1);
   }
+  
 }
 
 function normalizeString(str) {
@@ -451,7 +464,7 @@ async function main() {
   const lastfmTracks = shuffle(selectedTracks);
 
   console.log('\n🔍 Searching for tracks on Spotify...');
-  const uris = [];
+  const foundTracks = [];   
   let found = 0;
   let notFound = 0;
 
@@ -459,7 +472,7 @@ async function main() {
     const track = lastfmTracks[i];
     const uri = await searchSpotifyTrack(track, accessToken);
     if (uri) {
-      uris.push(uri);
+      foundTracks.push({ uri, name: track.name, artist: track.artist });
       found++;
     } else {
       notFound++;
@@ -473,16 +486,19 @@ async function main() {
 
   console.log('\n✅ Found ' + found + ' tracks on Spotify (' + notFound + ' not found)');
 
-  if (uris.length === 0) {
+  if (foundTracks.length === 0) {
     console.error('❌ No tracks found on Spotify. Aborting.');
     process.exit(1);
   }
 
-  await updatePlaylist(config.loves.playlist_id, uris, accessToken);
-
-  console.log('\n🎉 Done! Your Loved Artists Playlist has been updated.');
-  console.log('   Tracks added: ' + uris.length);
-  console.log('─'.repeat(50) + '\n');
+  if (DRY_RUN) {
+    logDryRun(foundTracks);
+  } else {
+    await updatePlaylist(config.loves.playlist_id, foundTracks, accessToken);
+    console.log('\n🎉 Done! Your Loved Artists Playlist has been updated.');
+    console.log('   Tracks added: ' + foundTracks.length);
+    console.log('─'.repeat(50) + '\n');
+  }
 }
 
 main().catch(err => {

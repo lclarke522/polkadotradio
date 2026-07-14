@@ -17,6 +17,7 @@ const SpotifyWebApi = require('spotify-web-api-node');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
 const { spotifyGet, spotifyPut, spotifyPost } = require('../lib/spotify');
+const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -28,6 +29,7 @@ const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 
 const PODCAST_ONLY = process.argv.includes('--podcast-only');
+const DRY_RUN = process.argv.includes('--dry-run');
 
 function loadCredentials() {
   if (!fs.existsSync(CREDENTIALS_FILE)) {
@@ -61,7 +63,7 @@ function saveToken(tokenData) {
 
 function getVariant(config) {
   const args = process.argv.slice(2);
-  const validFlags = new Set(['--morning', '--afternoon', '--evening', '--podcast-only']);
+  const validFlags = new Set(['--morning', '--afternoon', '--evening', '--podcast-only', '--dry-run']);
   const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
   if (unknownFlags.length > 0) {
     console.error(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
@@ -372,8 +374,11 @@ async function main() {
     ];
   }
 
-await updatePlaylist(spotifyApi, variant.target_id, finalSelected);
-
+  if (DRY_RUN) {
+    logDryRun(finalSelected);
+  } else {
+    await updatePlaylist(spotifyApi, variant.target_id, finalSelected);
+  }
 }
 
 main().catch(err => {

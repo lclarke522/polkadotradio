@@ -15,6 +15,7 @@ const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
 const { spotifyGet, spotifyPut, spotifyPost } = require('../lib/spotify');
+const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
 
@@ -24,6 +25,8 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(APP_DIR, 'config.yaml');
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
+
+const DRY_RUN = process.argv.includes('--dry-run');
 
 function loadCredentials() {
   if (!fs.existsSync(CREDENTIALS_FILE)) {
@@ -55,7 +58,7 @@ function saveToken(tokenData) {
 
 function getTopScope(config) {
   const args = process.argv.slice(2);
-  const validFlags = new Set(['--year', '--month', '--week', '--all']);
+  const validFlags = new Set(['--year', '--month', '--week', '--all', '--dry-run']);
   const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
   if (unknownFlags.length > 0) {
     console.error(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
@@ -143,7 +146,7 @@ async function getLastFmTopTracks(credentials,config,topScope) {
   const { scope, period, periodTxt } = topScope;
 
   const limit = scope.track_count || 100;
-  console.log('🎵 Fetching top ' + limit + ' tracks for "' + credentials.lastfm.username + '" (' + periodTxt + ') from Last.fm...');
+  console.log('🎵 Fetching ' + limit + ' top artist(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
 
   const res = await request({
     hostname: 'ws.audioscrobbler.com',
@@ -245,7 +248,7 @@ async function main() {
   const lastfmTracks = await getLastFmTopTracks(credentials,config,topScope);
 
   console.log('\n🔍 Searching for tracks on Spotify...');
-  const uris = [];
+  const foundTracks = [];   
   let found = 0;
   let notFound = 0;
 
@@ -253,7 +256,7 @@ async function main() {
     const track = lastfmTracks[i];
     const uri = await searchSpotifyTrack(track, accessToken);
     if (uri) {
-      uris.push(uri);
+      foundTracks.push({ uri, name: track.name, artist: track.artist });
       found++;
     } else {
       notFound++;
@@ -267,16 +270,19 @@ async function main() {
 
   console.log('\n✅ Found ' + found + ' tracks on Spotify (' + notFound + ' not found)');
 
-  if (uris.length === 0) {
+  if (foundTracks.length === 0) {
     console.error('❌ No tracks found on Spotify. Aborting.');
     process.exit(1);
   }
 
-  await updatePlaylist(topScope.scope.playlist_id, uris, accessToken);
-
-  console.log('\n🎉 Done! Your Top',topScope.scope.track_count,'playlist has been updated.');
-  console.log('   Tracks added: ' + uris.length);
-  console.log('─'.repeat(50) + '\n');
+  if (DRY_RUN) {
+    logDryRun(foundTracks);
+  } else {
+    await updatePlaylist(topScope.scope.playlist_id, foundTracks.map(t => t.uri), accessToken);
+    console.log('\n🎉 Done! Your Top',topScope.scope.track_count,'playlist has been updated.');
+    console.log('   Tracks added: ' + foundTracks.length);
+    console.log('─'.repeat(50) + '\n');
+  }
 }
 
 main().catch(err => {
