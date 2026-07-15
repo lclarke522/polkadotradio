@@ -22,7 +22,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(APP_DIR, 'config.yaml');
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
-const FAMILIES_FILE = path.join(ROOT_DIR, 'artist-families.yaml');
+const FAMILIES_FILE = path.join(ROOT_DIR, 'families-config.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
