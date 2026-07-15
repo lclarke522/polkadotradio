@@ -427,8 +427,6 @@ async function main() {
 
   validateConfig(config);
 
-  const accessToken = await getAccessToken(credentials);
-
   const topArtists = await getTopArtists(credentials, config);
   const includeArtists = config.loves.include_artists ?? [];
 
@@ -486,6 +484,13 @@ async function main() {
 
   const lastfmTracks = shuffle(selectedTracks);
 
+  if (DRY_RUN) {
+    logDryRun(lastfmTracks);
+    return;
+  }
+
+  const accessToken = await getAccessToken(credentials);
+
   console.log('\n🔍 Searching for tracks on Spotify...');
   const foundTracks = [];   
   let found = 0;
@@ -514,14 +519,10 @@ async function main() {
     process.exit(1);
   }
 
-  if (DRY_RUN) {
-    logDryRun(foundTracks);
-  } else {
-    await updatePlaylist(config.loves.playlist_id, foundTracks, accessToken);
-    console.log('\n🎉 Done! Your Loved Artists Playlist has been updated.');
-    console.log('   Tracks added: ' + foundTracks.length);
-    console.log('─'.repeat(50) + '\n');
-  }
+  await updatePlaylist(config.loves.playlist_id, foundTracks, accessToken);
+  console.log('\n🎉 Done! Your Loved Artists Playlist has been updated.');
+  console.log('   Tracks added: ' + foundTracks.length);
+  console.log('─'.repeat(50) + '\n');
 }
 
 main().catch(err => {
