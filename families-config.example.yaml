@@ -6,7 +6,7 @@
 # chosen, then tracks from any of the members of that family may be used
 # to satisfy the track requirements.
 #
-# Copy this file to artist-families.yaml at the root level.
+# Copy this file to families-config.yaml at the root level.
 
 # Example: Treat Crowded House, Neil Finn, Finn Brothers, and Split Enz
 # as one artist when collecting tracks for a playlist
