@@ -262,7 +262,7 @@ function dedupTracks(tracks) {
   const seen = new Map();
 
   for (const track of tracks) {
-    const key = track.artistMatchkey + '|' + normalizeString(track.name);
+    const key = track.artistMatchkey + '|' + normalizeForMatch(track.name);
     const existing = seen.get(key);
 
     if (!existing || track.playcount > existing.playcount) {
