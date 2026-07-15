@@ -22,7 +22,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(APP_DIR, 'config.yaml');
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
-const FAMILIES_FILE = path.join(ROOT_DIR, 'families-config.yaml');
+const FAMILIES_FILE = path.join(APP_DIR, 'families-config.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -208,16 +208,13 @@ function normalizeForMatch(value) {
 }
 
 function findFamilyMatchkeys(matchkey, families) {
-
   for (const family of families) {
     const normalizedMembers = family.members.map(name => normalizeString(name));
-    const isMember = normalizedMembers.includes(matchkey);
-
-    if (isMember) {
-      return normalizedMembers;
+    if (normalizedMembers.includes(matchkey)) {
+      return family;
     }
   }
-  return [matchkey];
+  return null;
 }
 
 async function getTopArtists(credentials, config) {
@@ -252,7 +249,8 @@ async function getTopArtists(credentials, config) {
   
   return artists.map(a => ({
     name: a.name,
-    matchkey: normalizeString(a.name),
+    familyName: null,
+    matchkeys: [normalizeString(a.name)],
     mbid: a.mbid || null,
     rank: parseInt(a['@attr']?.rank, 10) || null,
     playcount: parseInt(a.playcount, 10) || null,
@@ -265,12 +263,13 @@ function dedupArtists(combinedArtists) {
   for (let i=0; i<combinedArtists.length; i++) {
     let foundMatch = null;
     for (let j=0; j<dedupedArtists.length; j++) {
-      if (combinedArtists[i].matchkey === dedupedArtists[j].matchkey) { foundMatch = j; }
+      if (combinedArtists[i].matchkeys[0] === dedupedArtists[j].matchkeys[0]) { foundMatch = j; }
     }
     if (foundMatch !== null) {
       if (!dedupedArtists[foundMatch].mbid && combinedArtists[i].mbid) {
         dedupedArtists[foundMatch] = combinedArtists[i];
       }
+      console.log('🧐 Found and removed duplicate artist:',combinedArtists[i].name);
     } else {
       dedupedArtists.push(combinedArtists[i]);
     } 
@@ -442,7 +441,7 @@ async function updatePlaylist(playlistId, uris, accessToken) {
 async function main() {
   const config = loadConfig();
   const credentials = loadCredentials();
-  const families = loadFamilies();
+  const familyConfig = loadFamilies();
   
   console.log('\n💖 Loved Artists Playlist — Starting run at', new Date().toLocaleString());
   console.log('─'.repeat(50));
@@ -453,10 +452,12 @@ async function main() {
   const includeArtists = config.loves.include_artists ?? [];
 
   let finalArtists = [];
+  let manualArtists = [];
   if (includeArtists.length > 0) {
-    const manualArtists = includeArtists.map(name => ({
+    manualArtists = includeArtists.map(name => ({
       name,
-      matchkey: normalizeString(name),
+      familyName: null,
+      matchkeys: [normalizeString(name)],
       mbid: null,
       rank: null,
       playcount: null,
@@ -468,10 +469,35 @@ async function main() {
   finalArtists = topArtists;
   }
   
+  for (let i = 0; i < finalArtists.length; i++) {
+    if (topArtists.includes(finalArtists[i])) {
+      const matchedFamily = findFamilyMatchkeys(finalArtists[i].matchkeys[0], familyConfig.families);
+      if (matchedFamily) {
+        finalArtists[i].matchkeys = matchedFamily.members.map(name => normalizeString(name));
+        finalArtists[i].familyName = matchedFamily.display_name;
+      }
+    }
+  }
+  
+  for (const manualArtist of manualArtists) {
+    if (!finalArtists.includes(manualArtist)) continue;
+    
+    const manualKey = manualArtist.matchkeys[0];
+
+    for (let j = 0; j < finalArtists.length; j++) {
+      if (finalArtists[j] === manualArtist) continue;
+
+      if (finalArtists[j].matchkeys.includes(manualKey)) {
+        finalArtists[j].matchkeys = finalArtists[j].matchkeys.filter(k => k !== manualKey);
+        console.log('🧐 Removed duplicate artist', manualArtist.name, 'from', finalArtists[j].familyName || finalArtists[j].name);
+      }
+    }
+  }  
+
   const trackPool = await getLastFmTopTracks(credentials,config);
   
   const artistMbids = new Set(finalArtists.filter(a => a.mbid).map(a => a.mbid));
-  const artistMatchkeys = new Set(finalArtists.map(a => a.matchkey));
+  const artistMatchkeys = new Set(finalArtists.map(a => a.matchkeys).flat());
 
   const filteredTracks = trackPool.filter(track => {
     const mbidMatch = track.artistMbid && artistMbids.has(track.artistMbid);
@@ -489,7 +515,7 @@ async function main() {
   for (const artist of finalArtists) {
     const candidates = dedupedTracks.filter(t => {
       const mbidMatch = artist.mbid && t.artistMbid === artist.mbid;
-      const nameMatch = t.artistMatchkey === artist.matchkey;
+      const nameMatch = artist.matchkeys.includes(t.artistMatchkey);
       return mbidMatch || nameMatch;
     });
     const shuffled = shuffle(candidates);
@@ -498,7 +524,7 @@ async function main() {
     if (picked.length < tracksPerArtist) {
       console.log('⚠️  Only found ' + picked.length + ' tracks for ' + artist.name + '; using all ' + picked.length + '.');
     } else {
-      console.log('  Selected ' + picked.length + ' tracks for ' + artist.name + '.');
+      console.log('  Selected ' + picked.length + ' tracks for ' + (artist.familyName || artist.name) + '.');
     }
 
     selectedTracks.push(...picked);
