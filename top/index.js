@@ -25,6 +25,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(APP_DIR, 'config.yaml');
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
+const FAMILIES_FILE = path.join(ROOT_DIR, 'artist-familes.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -54,6 +55,12 @@ function loadToken() {
 
 function saveToken(tokenData) {
   fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokenData, null, 2));
+}
+
+function loadFamilies() {
+  if (fs.existsSync(FAMILIES_FILE)) {
+    return yaml.load(fs.readFileSync(FAMILIES_FILE, 'utf8'));
+  }
 }
 
 function getTopScope(config) {

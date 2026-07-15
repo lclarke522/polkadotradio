@@ -1,0 +1,37 @@
+# This is an optional configuration file for use with the Top Tracks and
+# Loved Artists apps. Define groups of artists (aka "families") to be
+# grouped together as if they were a single artist.
+#
+# If any member of a defined family is dynamically selected or manually
+# chosen, then tracks from any of the members of that family may be used
+# to satisfy the track requirements.
+#
+# Copy this file to families-config.yaml at the root level.
+
+# Example: Treat Crowded House, Neil Finn, Finn Brothers, and Split Enz
+# as one artist when collecting tracks for a playlist
+
+families:
+  - display_name: "the Neil Finn family"
+    members:
+      - "Crowded House"
+      - "Neil Finn"
+      - "Finn Brothers"
+      - "Split Enz"
+  - display_name: "the Guster family"
+    members:
+      - "Guster"
+      - "Ryan Miller"
+  - display_name: "the Innocence Mission family"
+    members:
+      - "The Innocence Mission"
+      - "Karen Peris"
+      - "Don Peris"      
+  - display_name: "the Toad the Wet Sprocket family"
+    members:
+      - "Toad the Wet Sprocket"
+      - "Glen Phillips"
+  - display_name: "the Real Estate family" 
+    members:
+      - "Real Estate"
+      - "Martin Courtney"

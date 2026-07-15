@@ -22,6 +22,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(APP_DIR, 'config.yaml');
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
+const FAMILIES_FILE = path.join(ROOT_DIR, 'families-config.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -60,6 +61,13 @@ function loadToken() {
 
 function saveToken(tokenData) {
   fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokenData, null, 2));
+}
+
+function loadFamilies() {
+  if (!fs.existsSync(FAMILIES_FILE)) {
+    return { families: [] };
+  }
+  return yaml.load(fs.readFileSync(FAMILIES_FILE, 'utf8'));
 }
 
 // ─── Spotify auth ─────────────────────────────────────────────────────────────
@@ -197,6 +205,19 @@ function normalizeForMatch(value) {
     .replace(/[-–—_:;,.!?'"`]/g, ' ')
     .replace(/\s+/g, ' ')
     .trim();
+}
+
+function findFamilyMatchkeys(matchkey, families) {
+
+  for (const family of families) {
+    const normalizedMembers = family.members.map(name => normalizeString(name));
+    const isMember = normalizedMembers.includes(matchkey);
+
+    if (isMember) {
+      return normalizedMembers;
+    }
+  }
+  return [matchkey];
 }
 
 async function getTopArtists(credentials, config) {
@@ -421,6 +442,7 @@ async function updatePlaylist(playlistId, uris, accessToken) {
 async function main() {
   const config = loadConfig();
   const credentials = loadCredentials();
+  const families = loadFamilies();
   
   console.log('\n💖 Loved Artists Playlist — Starting run at', new Date().toLocaleString());
   console.log('─'.repeat(50));
@@ -519,7 +541,7 @@ async function main() {
     process.exit(1);
   }
 
-  await updatePlaylist(config.loves.playlist_id, foundTracks, accessToken);
+  await updatePlaylist(config.loves.playlist_id, foundTracks.map(t => t.uri), accessToken);
   console.log('\n🎉 Done! Your Loved Artists Playlist has been updated.');
   console.log('   Tracks added: ' + foundTracks.length);
   console.log('─'.repeat(50) + '\n');
