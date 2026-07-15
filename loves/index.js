@@ -252,7 +252,7 @@ async function getTopArtists(credentials, config) {
   
   return artists.map(a => ({
     name: a.name,
-    matchkey: normalizeString(a.name),
+    matchkeys: [normalizeString(a.name)],
     mbid: a.mbid || null,
     rank: parseInt(a['@attr']?.rank, 10) || null,
     playcount: parseInt(a.playcount, 10) || null,
@@ -265,7 +265,7 @@ function dedupArtists(combinedArtists) {
   for (let i=0; i<combinedArtists.length; i++) {
     let foundMatch = null;
     for (let j=0; j<dedupedArtists.length; j++) {
-      if (combinedArtists[i].matchkey === dedupedArtists[j].matchkey) { foundMatch = j; }
+      if (combinedArtists[i].matchkeys[0] === dedupedArtists[j].matchkeys[0]) { foundMatch = j; }
     }
     if (foundMatch !== null) {
       if (!dedupedArtists[foundMatch].mbid && combinedArtists[i].mbid) {
@@ -442,7 +442,7 @@ async function updatePlaylist(playlistId, uris, accessToken) {
 async function main() {
   const config = loadConfig();
   const credentials = loadCredentials();
-  const families = loadFamilies();
+  const familyConfig = loadFamilies();
   
   console.log('\n💖 Loved Artists Playlist — Starting run at', new Date().toLocaleString());
   console.log('─'.repeat(50));
@@ -458,7 +458,7 @@ async function main() {
   if (includeArtists.length > 0) {
     const manualArtists = includeArtists.map(name => ({
       name,
-      matchkey: normalizeString(name),
+      matchkeys: [normalizeString(name)],
       mbid: null,
       rank: null,
       playcount: null,
@@ -470,10 +470,16 @@ async function main() {
   finalArtists = topArtists;
   }
   
+  for (let i = 0; i < finalArtists.length; i++) {
+    if (topArtists.includes(finalArtists[i])) {
+      finalArtists[i].matchkeys = findFamilyMatchkeys(finalArtists[i].matchkeys[0], familyConfig.families);
+    }
+    // else: manual artist — leave matchkeys untouched
+  }  
   const trackPool = await getLastFmTopTracks(credentials,config);
   
   const artistMbids = new Set(finalArtists.filter(a => a.mbid).map(a => a.mbid));
-  const artistMatchkeys = new Set(finalArtists.map(a => a.matchkey));
+  const artistMatchkeys = new Set(finalArtists.map(a => a.matchkeys).flat());
 
   const filteredTracks = trackPool.filter(track => {
     const mbidMatch = track.artistMbid && artistMbids.has(track.artistMbid);
@@ -491,7 +497,7 @@ async function main() {
   for (const artist of finalArtists) {
     const candidates = dedupedTracks.filter(t => {
       const mbidMatch = artist.mbid && t.artistMbid === artist.mbid;
-      const nameMatch = t.artistMatchkey === artist.matchkey;
+      const nameMatch = artist.matchkeys.includes(t.artistMatchkey);
       return mbidMatch || nameMatch;
     });
     const shuffled = shuffle(candidates);
