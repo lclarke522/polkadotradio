@@ -186,18 +186,34 @@ function normalizeString(str) {
     .replace(/\s*\(from .+?\)\s*$/i, '');
 }
 
+function normalizeForMatch(value) {
+  return value
+    .normalize('NFKD')
+    .replace(/\p{Diacritic}/gu, '')
+    .toLowerCase()
+    .replace(/&/g, ' and ')
+    .replace(/\bep\b/g, 'ep')
+    .replace(/[()[\]{}]/g, ' ')
+    .replace(/[-–—_:;,.!?'"`]/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
 async function getTopArtists(credentials, config) {
-  
-  if (config.loves.top_artist_count === 0) { return []; }
+  const topArtistCount = config.loves.top_artist_count ?? 5;
+
+  if (topArtistCount === 0) { return []; }
+
   const periodTxt = PERIOD_LABELS[config.loves.artist_period];
-  
-  console.log('🎵 Fetching ' + config.loves.top_artist_count + ' top artist(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
+
+  console.log('🎵 Fetching ' + topArtistCount + ' top artist(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
+
   const res = await request({
     hostname: 'ws.audioscrobbler.com',
     path: '/2.0/?method=user.getTopArtists' +
       '&user=' + encodeURIComponent(credentials.lastfm.username) +
       '&period=' + config.loves.artist_period +
-      '&limit=' + config.loves.top_artist_count +
+      '&limit=' + topArtistCount +
       '&api_key=' + credentials.lastfm.api_key +
       '&format=json',
     method: 'GET',
@@ -305,8 +321,10 @@ async function getLastFmTopTracks(credentials,config) {
     tracks = [...tracks, ...pageTracks];
 
     page += 1;
-    hasMore = (page <= totalPages) && (tracks.length <= limit);
+    hasMore = (page <= totalPages) && (tracks.length < limit);
   }
+  
+  tracks = tracks.slice(0, limit);
   
   console.log('✅ Got ' + tracks.length + ' tracks from Last.fm');
   return tracks.map(t => ({
@@ -328,14 +346,19 @@ async function searchSpotifyTrack(track, accessToken) {
     const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=5', accessToken);
     const items = data.tracks?.items ?? [];
 
-    const expectedArtistKey = normalizeString(track.artist);
-    const expectedTitleKey = normalizeString(track.name);
+	const expectedArtistKey = normalizeForMatch(track.artist);
+	const expectedTitleKey = normalizeForMatch(track.name);
 
-    const goodMatch = items.find(item => {
-      const artistMatch = item.artists.some(a => normalizeString(a.name) === expectedArtistKey);
-      const titleMatch = normalizeString(item.name) === expectedTitleKey;
-      return artistMatch && titleMatch;
-    });
+	const goodMatch = items.find(item => {
+	  const artistMatch = item.artists.some(a =>
+		normalizeForMatch(a.name) === expectedArtistKey
+	  );
+
+	  const titleMatch =
+		normalizeForMatch(item.name) === expectedTitleKey;
+
+	  return artistMatch && titleMatch;
+	});
 
     if (!goodMatch) {
       if (items.length > 0) {
@@ -407,7 +430,7 @@ async function main() {
   const accessToken = await getAccessToken(credentials);
 
   const topArtists = await getTopArtists(credentials, config);
-  const includeArtists = config.loves.include_artists;
+  const includeArtists = config.loves.include_artists ?? [];
 
   let finalArtists = [];
   if (includeArtists.length > 0) {
