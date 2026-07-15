@@ -73,9 +73,9 @@ function getTopScope(config) {
     process.exit(1);
   }
   const selectedFlags = [
-    { passed: args.includes('--year'), key: 'topyear', period: '12month', label: 'in the last 12 months' },
-    { passed: args.includes('--month'), key: 'topmonth', period: '1month', label: 'in the last 30 days' },
-    { passed: args.includes('--week'), key: 'topweek', period: '7day', label: 'in the last 7 days' },
+    { passed: args.includes('--year'), key: 'topyear', period: '12month', label: 'of the last 12 months' },
+    { passed: args.includes('--month'), key: 'topmonth', period: '1month', label: 'of the last 30 days' },
+    { passed: args.includes('--week'), key: 'topweek', period: '7day', label: 'of the last 7 days' },
     { passed: args.includes('--all'), key: 'topall', period: 'overall', label: 'for all time' },
   ].filter(option => option.passed);
   if (selectedFlags.length > 1) {
@@ -153,7 +153,7 @@ async function getLastFmTopTracks(credentials,config,topScope) {
   const { scope, period, periodTxt } = topScope;
 
   const limit = scope.track_count || 100;
-  console.log('🎵 Fetching ' + limit + ' top artist(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
+  console.log('🎵 Fetching ' + limit + ' top track(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
 
   const res = await request({
     hostname: 'ws.audioscrobbler.com',
@@ -250,9 +250,14 @@ async function main() {
   console.log('─'.repeat(50));
 
 
-  const accessToken = await getAccessToken(credentials);
-
   const lastfmTracks = await getLastFmTopTracks(credentials,config,topScope);
+
+  if (DRY_RUN) {
+    logDryRun(lastfmTracks);
+    return;
+  }
+
+  const accessToken = await getAccessToken(credentials);
 
   console.log('\n🔍 Searching for tracks on Spotify...');
   const foundTracks = [];   
@@ -282,14 +287,10 @@ async function main() {
     process.exit(1);
   }
 
-  if (DRY_RUN) {
-    logDryRun(foundTracks);
-  } else {
-    await updatePlaylist(topScope.scope.playlist_id, foundTracks.map(t => t.uri), accessToken);
-    console.log('\n🎉 Done! Your Top',topScope.scope.track_count,'playlist has been updated.');
-    console.log('   Tracks added: ' + foundTracks.length);
-    console.log('─'.repeat(50) + '\n');
-  }
+  await updatePlaylist(topScope.scope.playlist_id, foundTracks.map(t => t.uri), accessToken);
+  console.log('\n🎉 Done! Your Top',topScope.scope.track_count,'playlist has been updated.');
+  console.log('   Tracks added: ' + foundTracks.length);
+  console.log('─'.repeat(50) + '\n');
 }
 
 main().catch(err => {
