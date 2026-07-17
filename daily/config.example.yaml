@@ -1,8 +1,3 @@
-spotify:
-  client_id: "your-client-id-here"
-  client_secret: "your-client-secret-here"
-  redirect_uri: "http://127.0.0.1:8888/callback"
-
 # Morning Coffee (--morning or no arguments)
 # Example configuration:
 # news_id:   "6BRSvIBNQnB68GuoXJRCnQ" Starts off with an episode of NPR News Now
