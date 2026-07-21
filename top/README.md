@@ -7,10 +7,10 @@ This script allows you to create playlists from your Last.fm listening charts fo
 Before running this script, you will need to update your credentials and run `setup.js` at the root level. See the root-level README for details. 
 ## Configuration
 
-For **Top Tracks** the files can be found in the `top` directory. Copy the example config file:
+For **Top Tracks** the working directory is `top`. Copy the example config file:
 
 ```
-cp top/config.example.yaml top/config.yaml
+cp config.example.yaml config.yaml
 ```
 
 You will need the following information for your config file:
