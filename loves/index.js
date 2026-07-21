@@ -11,7 +11,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
-const { spotifyGet, spotifyPut, spotifyPost } = require('../lib/spotify');
+const { spotifyGet, spotifyPut, spotifyPost, normalizeForMatch } = require('../lib/spotify');
 const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -192,19 +192,6 @@ function normalizeString(str) {
     .trim()
     .replace(/\s+/g, ' ')
     .replace(/\s*\(from .+?\)\s*$/i, '');
-}
-
-function normalizeForMatch(value) {
-  return value
-    .normalize('NFKD')
-    .replace(/\p{Diacritic}/gu, '')
-    .toLowerCase()
-    .replace(/&/g, ' and ')
-    .replace(/\bep\b/g, 'ep')
-    .replace(/[()[\]{}]/g, ' ')
-    .replace(/[-–—_:;,.!?'"`]/g, ' ')
-    .replace(/\s+/g, ' ')
-    .trim();
 }
 
 function findFamilyMatchkeys(matchkey, families) {
