@@ -14,7 +14,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
-const { spotifyGet, spotifyPut, spotifyPost } = require('../lib/spotify');
+const { spotifyGet, spotifyPut, spotifyPost, normalizeForMatch } = require('../lib/spotify');
 const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -186,9 +186,31 @@ async function getLastFmTopTracks(credentials,config,topScope) {
 async function searchSpotifyTrack(track, accessToken) {
   const q = encodeURIComponent(`track:"${track.name}" artist:"${track.artist}"`);
   try {
-    const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=1', accessToken);
+    const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=5', accessToken);
     const items = data.tracks?.items ?? [];
-    return items.length > 0 ? items[0].uri : null;
+
+	const expectedArtistKey = normalizeForMatch(track.artist);
+	const expectedTitleKey = normalizeForMatch(track.name);
+
+	const goodMatch = items.find(item => {
+	  const artistMatch = item.artists.some(a =>
+		normalizeForMatch(a.name) === expectedArtistKey
+	  );
+
+	  const titleMatch =
+		normalizeForMatch(item.name) === expectedTitleKey;
+
+	  return artistMatch && titleMatch;
+	});
+
+    if (!goodMatch) {
+      if (items.length > 0) {
+        console.log('   ⚠️  No exact match for "' + track.name + '" by ' + track.artist + ' (closest: "' + items[0].name + '" by ' + items[0].artists.map(a => a.name).join(', ') + '); skipping.');
+      }
+      return null;
+    }
+
+    return goodMatch.uri;
   } catch (err) {
     console.error('\n❌ Search error for "' + track.name + '": ' + err.message);
     if (err.message.includes('401')) {
