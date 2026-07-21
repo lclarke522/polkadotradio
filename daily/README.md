@@ -7,10 +7,10 @@ This script allows you to create randomized personal playlists seeded from large
 Before running this script, you will need to update your credentials and run `setup.js` at the root level. See the root-level README for details. 
 ## Configuration
 
-For **Daily Playlists** the working directory is `daily`. Copy the example config file:
+For **Daily Playlists** the files can be found in the `daily` directory. Copy the example config file:
 
 ```
-cp config.example.yaml config.yaml
+cp daily/config.example.yaml daily/config.yaml
 ```
 
 You will need the following information for your config file:
