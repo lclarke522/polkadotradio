@@ -15,11 +15,18 @@ const { spotifyGet, spotifyPut, spotifyPost, normalizeForMatch } = require('../l
 const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
+const configFlagIndex = process.argv.indexOf('--config');
+const configName = configFlagIndex !== -1 ? process.argv[configFlagIndex + 1] : 'config.yaml';
+
+if (configFlagIndex !== -1 && !configName) {
+  console.error('❌ Error: --config flag requires a filename');
+  process.exit(1);
+}
 
 const APP_DIR = __dirname;
 const ROOT_DIR = path.resolve(__dirname, '..');
 
-const CONFIG_FILE = path.join(APP_DIR, 'config.yaml');
+const CONFIG_FILE = path.join(APP_DIR, configName);
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 const FAMILIES_FILE = path.join(APP_DIR, 'families-config.yaml');
@@ -45,7 +52,7 @@ function loadCredentials() {
 
 function loadConfig() {
   if (!fs.existsSync(CONFIG_FILE)) {
-    console.error('❌ config.yaml not found. Copy loves/config.example.yaml to loves/config.yaml and fill it in.');
+    console.error('❌',configName,'not found. Copy loves/config.example.yaml to',configName,'and fill it in.');
     process.exit(1);
   }
   return yaml.load(fs.readFileSync(CONFIG_FILE, 'utf8'));
@@ -125,16 +132,16 @@ async function getAccessToken(credentials) {
 
 function validateConfig(config) {
   const args = process.argv.slice(2);
-  const validFlags = new Set(['--dry-run']);
+  const validFlags = new Set(['--dry-run','--config']);
   const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
   if (unknownFlags.length > 0) {
     console.error(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
-    console.error('   Only valid flag is: --dry-run');
+    console.error('   Only valid flags are: --dry-run and --config');
     process.exit(1);
   }
 
   if (!config.loves) {
-    console.error('❌ config.yaml is missing the top-level "loves:" section.');
+    console.error('❌ Config file is missing the top-level "loves:" section.');
     process.exit(1);
   }
   
@@ -171,7 +178,7 @@ function validateConfig(config) {
   }
 
   if (!config.loves.playlist_id) {
-    console.error('❌ Must specify playlist_id in config.yaml');
+    console.error('❌ Must specify playlist_id in config file');
     process.exit(1);
   }
   

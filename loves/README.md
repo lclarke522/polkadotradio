@@ -76,14 +76,19 @@ This allows you to expand the depth of the resulting playlist. Sometimes you lik
 ## Usage
 
 ```bash
-node loves/index.js [--dry-run]
+node loves/index.js [--dry-run] [--config <config-file>]
 ```
 
-#### Example
+#### Examples
 
 Display the list of tracks that would have gone into the playlist, but don't actually invoke Spotify's API:
 ```bash
 node loves/index.js --dry-run
+```
+
+Create a config file called `concert-config.yaml` and add every artist performing at an upcoming music festival to `include_artists`. Then run the script using that config file so you have a pre-concert playlist to listen to in the car on the way there:
+```bash
+node loves/index.js --config --concert-config.yaml
 ```
 
 ## Example playlist
