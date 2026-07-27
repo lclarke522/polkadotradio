@@ -12,7 +12,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
-const { spotifyGet, spotifyPut, spotifyPost, normalizeForMatch, loadTrackCache, saveTrackCache, trackCacheKey } = require('../lib/spotify');
+const { spotifyGet, spotifyPut, spotifyPost, findExactMatch, normalizeForMatch, loadTrackCache, saveTrackCache, trackCacheKey } = require('../lib/spotify');
 const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -155,8 +155,6 @@ function validateConfig(config) {
 
 // ─── Build source track list ──────────────────────────────────────────────────
 
-// ─── Build source track list ──────────────────────────────────────────────────
-
 function parseM3U(filePath) {
   const content = fs.readFileSync(filePath, 'utf8');
   const lines = content.split(/\r?\n/);
@@ -213,16 +211,7 @@ async function resolveTrackOnSpotify(track, accessToken) {
     const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=10', accessToken);
     const items = (data.tracks?.items ?? []).filter(item => item.is_playable !== false);
 
-    const expectedArtists = track.artist.split(',').map(a => normalizeForMatch(a.trim()));
-    const expectedTitleKey = normalizeForMatch(track.name);
-
-    const goodMatch = items.find(item => {
-      const artistMatch = item.artists.some(a =>
-        expectedArtists.includes(normalizeForMatch(a.name))
-      );
-      const titleMatch = normalizeForMatch(item.name) === expectedTitleKey;
-      return artistMatch && titleMatch;
-    });
+    const goodMatch = findExactMatch(items,track);
 
     if (!goodMatch) {
       if (items.length > 0) {
@@ -251,6 +240,8 @@ async function getTracksFromSource(accessToken, travelers) {
 
   for (const traveler of travelers) {
     console.log("🎵 Fetching tracks from " + traveler.name + "'s playlist...");
+
+    const beforeCount = tracks.length;
 
     if (traveler.source_type === 'spotify') {
       let offset = 0;
@@ -302,7 +293,7 @@ async function getTracksFromSource(accessToken, travelers) {
       console.log(`   Resolving ${rawTracks.length} tracks against Spotify...`);
       let resolvedCount = 0;
       let cacheHits = 0;
-      const trackCache = loadTrackCache();
+      const trackCache = loadTrackCache(TRACK_CACHE_FILE);
 
       for (const rawTrack of rawTracks) {
         const cacheKey = trackCacheKey(rawTrack);
@@ -329,9 +320,11 @@ async function getTracksFromSource(accessToken, travelers) {
           resolvedCount++;
         }
       }
-
-      saveTrackCache(trackCache);
+      saveTrackCache(trackCache,TRACK_CACHE_FILE);
       console.log(`   Resolved ${resolvedCount}/${rawTracks.length} tracks (${cacheHits} from cache).`);
+    }
+    if (tracks.length === beforeCount) {
+      console.log(`   ⚠️  No usable tracks found for ${traveler.name} — check their source.`);
     }
   }
 
@@ -343,7 +336,7 @@ function dedupTracks(tracks) {
   const seen = new Map();
 
   for (const track of tracks) {
-    const key = track.artist + '|' + normalizeForMatch(track.name);
+    const key = normalizeForMatch(track.artist) + '|' + normalizeForMatch(track.name);
     const existing = seen.get(key);
 
     if (!existing) {
@@ -407,47 +400,6 @@ function selectTracks(tracks, targetMs, travelers) {
   return { selectedTracks: shuffle(selected), totalMs };
 }
 
-// ─── Spotify search ───────────────────────────────────────────────────────────
-
-async function searchSpotifyTrack(track, accessToken) {
-  const firstArtist = track.artist.split(',')[0].trim();
-  const q = encodeURIComponent(`track:"${track.name}" artist:"${firstArtist}"`);
-  try {
-    const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=5', accessToken);
-    const items = (data.tracks?.items ?? []).filter(item => item.is_playable !== false);
-
-    const expectedArtistKey = normalizeForMatch(track.artist);
-    const expectedTitleKey = normalizeForMatch(track.name);
-
-    const expectedArtists = track.artist.split(',').map(a => normalizeForMatch(a.trim()));
-
-    const goodMatch = items.find(item => {
-      const artistMatch = item.artists.some(a =>
-        expectedArtists.includes(normalizeForMatch(a.name))
-      );
-
-      const titleMatch = normalizeForMatch(item.name) === expectedTitleKey;
-
-      return artistMatch && titleMatch;
-    });
-
-    if (!goodMatch) {
-      if (items.length > 0) {
-        console.log('   ⚠️  No exact match for "' + track.name + '" by ' + track.artist + ' (closest: "' + items[0].name + '" by ' + items[0].artists.map(a => a.name).join(', ') + '); skipping.');
-      }
-      return null;
-    }
-
-    return goodMatch.uri;
-  } catch (err) {
-    console.error('\n❌ Search error for "' + track.name + '": ' + err.message);
-    if (err.message.includes('401')) {
-      console.error('   Token is invalid. Run: node setup.js');
-      process.exit(1);
-    }
-    return null;
-  }
-}
 // ─── Spotify playlist update ──────────────────────────────────────────────────
 
 async function updatePlaylist(playlistId, uris, accessToken) {
@@ -520,38 +472,14 @@ async function main() {
   }
 
   console.log('\n🔍 Searching for tracks on Spotify...');
-  const foundTracks = [];   
-  let found = 0;
-  let notFound = 0;
 
-  for (let i = 0; i < selectedTracks.length; i++) {
-    const track = selectedTracks[i];
+  const foundTracks = selectedTracks.map(track => ({
+    uri: track.uri,
+    name: track.name,
+    artist: track.artist
+  }));
 
-    if (track.uri) {
-      foundTracks.push({ uri: track.uri, name: track.name, artist: track.artist });
-      found++;
-      continue;
-    }
-
-    const uri = await searchSpotifyTrack(track, accessToken);
-    if (uri) {
-      foundTracks.push({ uri, name: track.name, artist: track.artist });
-      found++;
-    } else {
-      notFound++;
-      console.log('   ⚠️  Not found: "' + track.name + '" by ' + track.artist);
-    }
-    if ((i + 1) % 10 === 0) {
-      console.log('   ' + (i + 1) + '/' + selectedTracks.length + ' searched — ' + found + ' found so far...');
-    }
-    await sleep(250);
-  }
-  console.log('\n✅ Found ' + found + ' tracks on Spotify (' + notFound + ' not found)');
-
-  if (foundTracks.length === 0) {
-    console.error('❌ No tracks found on Spotify. Aborting.');
-    process.exit(1);
-  }
+  console.log('\n✅ Found ' + foundTracks.length + ' tracks on Spotify');
 
   await updatePlaylist(config.destination_playlist_id, foundTracks.map(t => t.uri), accessToken);
   console.log('\n🎉 Done! Your Road Trip Radio Playlist has been updated.');
