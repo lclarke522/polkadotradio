@@ -360,19 +360,20 @@ async function searchSpotifyTrack(track, accessToken) {
     const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=5', accessToken);
     const items = data.tracks?.items ?? [];
 
-	const expectedArtistKey = normalizeForMatch(track.artist);
-	const expectedTitleKey = normalizeForMatch(track.name);
+  	const expectedArtistKey = normalizeForMatch(track.artist);
+	  const expectedTitleKey = normalizeForMatch(track.name);
 
-	const goodMatch = items.find(item => {
-	  const artistMatch = item.artists.some(a =>
-		normalizeForMatch(a.name) === expectedArtistKey
-	  );
+    const expectedArtists = track.artist.split(',').map(a => normalizeForMatch(a.trim()));
 
-	  const titleMatch =
-		normalizeForMatch(item.name) === expectedTitleKey;
+    const goodMatch = items.find(item => {
+      const artistMatch = item.artists.some(a =>
+        expectedArtists.includes(normalizeForMatch(a.name))
+      );
 
-	  return artistMatch && titleMatch;
-	});
+      const titleMatch = normalizeForMatch(item.name) === expectedTitleKey;
+
+      return artistMatch && titleMatch;
+    });
 
     if (!goodMatch) {
       if (items.length > 0) {

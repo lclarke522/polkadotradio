@@ -1,0 +1,16 @@
+trip_duration_minutes: 480
+destination_playlist_id: "spotify_playlist_id_here"
+
+travelers:
+  - name: Mom
+    source_type: spotify
+    source: "spotify_playlist_id_here"
+  - name: Dad
+    source_type: m3u
+    source: "./sources/dad.m3u"
+  - name: Brother
+    source_type: text
+    source: "./sources/brother.txt"
+  - name: Sister
+    source_type: text
+    source: "./sources/sister.txt"

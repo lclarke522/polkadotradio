@@ -8,11 +8,13 @@ spotify-token.json
 */config.yaml
 *config.yaml
 credentials.yaml
+roadtrip/sources/*
 
 # --- State & Runtime Data ---
 state.json
 *.state
 cursors.json
+.spotify-track-cache.json
 
 # Cron logs
 */log.txt
