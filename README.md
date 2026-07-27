@@ -13,6 +13,8 @@ At the moment, the repository includes three main scripts:
 - `daily/index.js`--**Daily Playlists**: create randomized personal playlists seeded from larger source playlists, optionally starting with a podcast episode and/or a random lead-in track
 - `top/index.js`--**Top Tracks**: create playlists from your Last.fm listening charts for one week, one month, one year, or all time
 - `loves/index.js`--**Loved Artists**: create playlists comprised of random songs you've played before from your most-listened to artists
+- `roadtrip/index.js`--**Road Trip Radio**: create a master playlist, seeded from a number of playlists provided by travelers in your party
+
 
 ## Requirements
 
