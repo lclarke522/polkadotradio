@@ -294,6 +294,9 @@ async function updatePlaylist(spotifyApi, playlistId, items) {
 	  accessToken
     );
   }
+  console.log('\n🎉 Done! Your Daily Playlist has been updated.');
+  console.log('   Tracks added: ' + items.length);
+  console.log('─'.repeat(50) + '\n');
 
 }
 
@@ -376,9 +379,6 @@ async function main() {
     logDryRun(finalSelected);
   } else {
     await updatePlaylist(spotifyApi, variant.target_id, finalSelected);
-    console.log('\n🎉 Done! Your Daily Playlist has been updated.');
-    console.log('   Tracks added: ' + items.length);
-    console.log('─'.repeat(50) + '\n');
   }
 }
 
