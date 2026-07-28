@@ -11,7 +11,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
-const { spotifyGet, spotifyPut, spotifyPost, normalizeForMatch } = require('../lib/spotify');
+const { spotifyGet, spotifyPut, spotifyPost, resolveTrackWithCache, normalizeForMatch, loadTrackCache, saveTrackCache, trackCacheKey } = require('../lib/spotify');
 const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -29,6 +29,7 @@ const ROOT_DIR = path.resolve(__dirname, '..');
 const CONFIG_FILE = path.join(APP_DIR, configName);
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
+const TRACK_CACHE_FILE = path.join(ROOT_DIR, '.spotify-track-cache.json');
 const FAMILIES_FILE = path.join(APP_DIR, 'families-config.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -352,46 +353,6 @@ async function getLastFmTopTracks(credentials,config) {
 }
 
 
-// ─── Spotify search ───────────────────────────────────────────────────────────
-
-async function searchSpotifyTrack(track, accessToken) {
-  const q = encodeURIComponent(`track:"${track.name}" artist:"${track.artist}"`);
-  try {
-    const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=5', accessToken);
-    const items = data.tracks?.items ?? [];
-
-  	const expectedArtistKey = normalizeForMatch(track.artist);
-	  const expectedTitleKey = normalizeForMatch(track.name);
-
-    const expectedArtists = track.artist.split(',').map(a => normalizeForMatch(a.trim()));
-
-    const goodMatch = items.find(item => {
-      const artistMatch = item.artists.some(a =>
-        expectedArtists.includes(normalizeForMatch(a.name))
-      );
-
-      const titleMatch = normalizeForMatch(item.name) === expectedTitleKey;
-
-      return artistMatch && titleMatch;
-    });
-
-    if (!goodMatch) {
-      if (items.length > 0) {
-        console.log('   ⚠️  No exact match for "' + track.name + '" by ' + track.artist + ' (closest: "' + items[0].name + '" by ' + items[0].artists.map(a => a.name).join(', ') + '); skipping.');
-      }
-      return null;
-    }
-
-    return goodMatch.uri;
-  } catch (err) {
-    console.error('\n❌ Search error for "' + track.name + '": ' + err.message);
-    if (err.message.includes('401')) {
-      console.error('   Token is invalid. Run: node setup.js');
-      process.exit(1);
-    }
-    return null;
-  }
-}
 // ─── Spotify playlist update ──────────────────────────────────────────────────
 
 async function updatePlaylist(playlistId, uris, accessToken) {
@@ -533,29 +494,29 @@ async function main() {
   }
 
   const accessToken = await getAccessToken(credentials);
+  const foundTracks = [];
 
-  console.log('\n🔍 Searching for tracks on Spotify...');
-  const foundTracks = [];   
-  let found = 0;
-  let notFound = 0;
+  console.log(`   Resolving ${lastfmTracks.length} tracks against Spotify...`);
+  let resolvedCount = 0;
+  let cacheHits = 0;
+  const trackCache = loadTrackCache(TRACK_CACHE_FILE);
 
-  for (let i = 0; i < lastfmTracks.length; i++) {
-    const track = lastfmTracks[i];
-    const uri = await searchSpotifyTrack(track, accessToken);
-    if (uri) {
-      foundTracks.push({ uri, name: track.name, artist: track.artist });
-      found++;
-    } else {
-      notFound++;
-      console.log('   ⚠️  Not found: "' + track.name + '" by ' + track.artist);
+  for (const lastfmTrack of lastfmTracks) {
+    const { resolved, fromCache } = await resolveTrackWithCache(lastfmTrack, accessToken, trackCache);
+    if (fromCache) cacheHits++;
+
+    if (resolved) {
+      foundTracks.push({
+        uri: resolved.uri,
+        name: lastfmTrack.name,
+        artist: lastfmTrack.artist,
+        duration_ms: resolved.duration_ms,
+      });
+      resolvedCount++;
     }
-    if ((i + 1) % 10 === 0) {
-      console.log('   ' + (i + 1) + '/' + lastfmTracks.length + ' searched — ' + found + ' found so far...');
-    }
-    await sleep(250);
   }
-
-  console.log('\n✅ Found ' + found + ' tracks on Spotify (' + notFound + ' not found)');
+  saveTrackCache(trackCache,TRACK_CACHE_FILE);
+  console.log(`   Resolved ${resolvedCount}/${lastfmTracks.length} tracks (${cacheHits} from cache).`);
 
   if (foundTracks.length === 0) {
     console.error('❌ No tracks found on Spotify. Aborting.');

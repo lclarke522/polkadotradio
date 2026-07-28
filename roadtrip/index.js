@@ -12,7 +12,7 @@ const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
-const { spotifyGet, spotifyPut, spotifyPost, findExactMatch, normalizeForMatch, loadTrackCache, saveTrackCache, trackCacheKey } = require('../lib/spotify');
+const { spotifyGet, spotifyPut, spotifyPost, resolveTrackWithCache, normalizeForMatch, loadTrackCache, saveTrackCache, trackCacheKey } = require('../lib/spotify');
 const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -202,37 +202,6 @@ function parseTextSource(filePath) {
   return tracks;
 }
 
-// Resolves a bare {artist, name} pair against Spotify search, returning
-// enough info (uri + duration_ms) to treat it like a native Spotify track from here on.
-async function resolveTrackOnSpotify(track, accessToken) {
-  const firstArtist = track.artist.split(',')[0].trim();
-  const q = encodeURIComponent(`${track.name} ${firstArtist}`);
-  try {
-    const data = await spotifyGet('/v1/search?q=' + q + '&type=track&limit=10', accessToken);
-    const items = (data.tracks?.items ?? []).filter(item => item.is_playable !== false);
-
-    const goodMatch = findExactMatch(items,track);
-
-    if (!goodMatch) {
-      if (items.length > 0) {
-        console.log('   ⚠️  No exact match for "' + track.name + '" by ' + track.artist + ' (closest: "' + items[0].name + '" by ' + items[0].artists.map(a => a.name).join(', ') + '); skipping.');
-      } else {
-        console.log('   ⚠️  Not found on Spotify (or unavailable): "' + track.name + '" by ' + track.artist);
-      }
-      return null;
-    }
-
-    return { uri: goodMatch.uri, duration_ms: goodMatch.duration_ms };
-  } catch (err) {
-    console.error('\n❌ Search error for "' + track.name + '": ' + err.message);
-    if (err.message.includes('401')) {
-      console.error('   Token is invalid. Run: node setup.js');
-      process.exit(1);
-    }
-    return null;
-  }
-}
-
 const AVERAGE_TRACK_MS = 3.5 * 60 * 1000; // rough placeholder for dry-run duration estimates
 
 async function getTracksFromSource(accessToken, travelers) {
@@ -296,18 +265,8 @@ async function getTracksFromSource(accessToken, travelers) {
       const trackCache = loadTrackCache(TRACK_CACHE_FILE);
 
       for (const rawTrack of rawTracks) {
-        const cacheKey = trackCacheKey(rawTrack);
-        let resolved = trackCache[cacheKey];
-
-        if (resolved) {
-          cacheHits++;
-        } else {
-          resolved = await resolveTrackOnSpotify(rawTrack, accessToken);
-          if (resolved) {
-            trackCache[cacheKey] = resolved;
-          }
-          await sleep(250);
-        }
+        const { resolved, fromCache } = await resolveTrackWithCache(rawTrack, accessToken, trackCache);
+        if (fromCache) cacheHits++;
 
         if (resolved) {
           tracks.push({
