@@ -115,3 +115,8 @@ This usually means one of the following:
 - Some source playlist items may be skipped if they are unavailable, local-only, or otherwise not playable through the Spotify API
 
 These tools were created for my personal use. I share them here with no guarantees.
+
+## Acknowledgments
+
+- Initial spark of inspiration provided by [Patrick Deglon's Daily Drive application](https://github.com/patdeg/dailydrive).
+- Developed in collaboration with Claude (Anthropic), which assisted with implementation, debugging, and architecture discussions throughout the project.
