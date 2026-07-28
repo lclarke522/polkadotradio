@@ -281,22 +281,20 @@ async function updatePlaylist(spotifyApi, playlistId, items) {
 
   const accessToken = spotifyApi.getAccessToken();
 
-await spotifyPut(
-  `/v1/playlists/${playlistId}/items`,
-  { uris: uris.slice(0, 100) },
-  accessToken
-);
-
-for (let i = 100; i < uris.length; i += 100) {
-  await spotifyPost(
+  await spotifyPut(
     `/v1/playlists/${playlistId}/items`,
-    { uris: uris.slice(i, i + 100) },
+    { uris: uris.slice(0, 100) },
     accessToken
   );
-}
 
-  console.log(`\n✅ Playlist updated!`);
-  console.log(`   🎵 ${items.length} items`);
+  for (let i = 100; i < uris.length; i += 100) {
+    await spotifyPost(
+	  `/v1/playlists/${playlistId}/items`,
+	  { uris: uris.slice(i, i + 100) },
+	  accessToken
+    );
+  }
+
 }
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -378,6 +376,9 @@ async function main() {
     logDryRun(finalSelected);
   } else {
     await updatePlaylist(spotifyApi, variant.target_id, finalSelected);
+    console.log('\n🎉 Done! Your Daily Playlist has been updated.');
+    console.log('   Tracks added: ' + items.length);
+    console.log('─'.repeat(50) + '\n');
   }
 }
 

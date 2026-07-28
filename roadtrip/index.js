@@ -404,7 +404,7 @@ async function main() {
   const config = loadConfig();
   const credentials = loadCredentials();
  
-  console.log('\n💖 Road Trip Radio Playlist — Starting run at', new Date().toLocaleString());
+  console.log('\n🚙 Road Trip Radio Playlist — Starting run at', new Date().toLocaleString());
   console.log('─'.repeat(50));
 
   validateConfig(config);
