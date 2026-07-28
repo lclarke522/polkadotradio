@@ -78,5 +78,5 @@ node roadtrip/index.js --dry-run
 
 Create a playlist for the travelers going on a beach trip:
 ```bash
-node roadtrip/index.js --config --beachtrip-config.yaml
+node roadtrip/index.js --config beachtrip-config.yaml
 ```
