@@ -30,6 +30,7 @@ const CONFIG_FILE = path.join(APP_DIR, configName);
 const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 const TRACK_CACHE_FILE = path.join(ROOT_DIR, '.spotify-track-cache.json');
+const TRACK_OVERRIDES_FILE = path.join(ROOT_DIR, '.spotify-track-overrides.json');
 const FAMILIES_FILE = path.join(APP_DIR, 'families-config.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -500,11 +501,12 @@ async function main() {
   let resolvedCount = 0;
   let cacheHits = 0;
   const trackCache = loadTrackCache(TRACK_CACHE_FILE);
+  const trackOverrides = loadTrackCache(TRACK_OVERRIDES_FILE);
 
   for (const lastfmTrack of lastfmTracks) {
-    const { resolved, fromCache } = await resolveTrackWithCache(lastfmTrack, accessToken, trackCache);
+    const { resolved, fromCache } = await resolveTrackWithCache(lastfmTrack, accessToken, trackCache, trackOverrides);
     if (fromCache) cacheHits++;
-
+    
     if (resolved) {
       foundTracks.push({
         uri: resolved.uri,
