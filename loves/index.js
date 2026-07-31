@@ -426,13 +426,29 @@ async function main() {
   finalArtists = topArtists;
   }
   
+const claimedFamilies = new Map(); // familyName -> finalArtists index that "owns" the family
+
   for (let i = 0; i < finalArtists.length; i++) {
-    if (topArtists.includes(finalArtists[i])) {
-      const matchedFamily = findFamilyMatchkeys(finalArtists[i].matchkeys[0], familyConfig.families);
-      if (matchedFamily) {
-        finalArtists[i].matchkeys = matchedFamily.members.map(name => normalizeString(name));
-        finalArtists[i].familyName = matchedFamily.display_name;
-      }
+    if (!topArtists.includes(finalArtists[i])) continue;
+
+    const ownMatchkey = finalArtists[i].matchkeys[0];
+    const matchedFamily = findFamilyMatchkeys(ownMatchkey, familyConfig.families);
+    if (!matchedFamily) continue;
+
+    if (!claimedFamilies.has(matchedFamily.display_name)) {
+      finalArtists[i].matchkeys = matchedFamily.members.map(name => normalizeString(name));
+      finalArtists[i].familyName = matchedFamily.display_name;
+      claimedFamilies.set(matchedFamily.display_name, i);
+    } else {
+      const ownerIndex = claimedFamilies.get(matchedFamily.display_name);
+      finalArtists[ownerIndex].matchkeys = finalArtists[ownerIndex].matchkeys.filter(k => k !== ownMatchkey);
+      console.log('🧐 Removed duplicate artist', finalArtists[i].name, 'from', finalArtists[ownerIndex].familyName);
+    }
+  }
+  
+  for (const [familyName, ownerIndex] of claimedFamilies) {
+    if (finalArtists[ownerIndex].matchkeys.length === 1) {
+      finalArtists[ownerIndex].familyName = null;
     }
   }
   
