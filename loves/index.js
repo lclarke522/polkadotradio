@@ -179,6 +179,19 @@ function validateConfig(config) {
     process.exit(1);
   }
 
+  if (!Number.isInteger(config.loves.tracks_per_artist) || config.loves.tracks_per_artist < 1) {
+    console.error('❌ tracks_per_artist must be a positive integer');
+    process.exit(1);
+  }
+
+  const trackOrder = config.loves.track_order || 'random';
+  const validOrder = new Set(['random','sequential']);
+
+  if (!validOrder.has(trackOrder)) {
+    console.error('❌ Track order must be one of random or sequential');
+    process.exit(1);
+  }
+
   if (!config.loves.playlist_id) {
     console.error('❌ Must specify playlist_id in config file');
     process.exit(1);
@@ -296,6 +309,17 @@ function shuffle(array) {
     [arr[i], arr[j]] = [arr[j], arr[i]];
   }
   return arr;
+}
+
+function interleave(lists) {
+  const result = [];
+  const maxLen = Math.max(0, ...lists.map(l => l.length));
+  for (let i = 0; i < maxLen; i++) {
+    for (const list of lists) {
+      if (i < list.length) result.push(list[i]);
+    }
+  }
+  return result;
 }
 
 async function getLastFmTopTracks(credentials,config) {
@@ -483,7 +507,8 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
   console.log('✅ Removed duplicate tracks: ' + dedupedTracks.length + ' remaining.\n');
   
   const tracksPerArtist = config.loves.tracks_per_artist;
-  const selectedTracks = [];
+  const trackOrder = config.loves.track_order || 'random';
+  const artistTrackLists = [];
 
   for (const artist of finalArtists) {
     const candidates = dedupedTracks.filter(t => {
@@ -491,8 +516,10 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
       const nameMatch = artist.matchkeys.includes(t.artistMatchkey);
       return mbidMatch || nameMatch;
     });
-    const shuffled = shuffle(candidates);
-    const picked = shuffled.slice(0, tracksPerArtist);
+    const ordered = trackOrder === 'sequential'
+      ? [...candidates].sort((a, b) => b.playcount - a.playcount)
+      : shuffle(candidates);
+    const picked = ordered.slice(0, tracksPerArtist);
 
     if (picked.length < tracksPerArtist) {
       console.log('⚠️  Only found ' + picked.length + ' tracks for ' + artist.name + '; using all ' + picked.length + '.');
@@ -500,11 +527,16 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
       console.log('  Selected ' + picked.length + ' tracks for ' + (artist.familyName || artist.name) + '.');
     }
 
-    selectedTracks.push(...picked);
+    artistTrackLists.push(picked);
   }
 
-  const lastfmTracks = shuffle(selectedTracks);
-
+  let lastfmTracks = [];
+  if(trackOrder == 'random') {
+    lastfmTracks = shuffle(artistTrackLists.flat());
+  } else {
+    lastfmTracks = interleave(artistTrackLists);
+  }
+  
   if (DRY_RUN) {
     logDryRun(lastfmTracks);
     return;
