@@ -5,25 +5,33 @@
 # playlist ID. The ID is the part after "playlist/"
 # in the URL. You can change the other values, too.
 
-# Default settings updates your Loved Artists playlist with up to 50
+# These default settings update your Loved Artists playlist with up to 50
 # tracks: 10 each from your top five artists of the last 12 months as 
 # scrobbled to Last.fm over the life of your Last.fm account.
-# Tracks are selected randomly from the top 750 
-# tracks of that time period.
-#
-# Set track_period differently from artist_period if you want to find artists
-# you're into *right now* but pull from their tracks you've loved *all-time* —
-# rather than just the ones you've played this month.
-#
-# Additional artists may optionally be included.
+# Tracks are selected randomly from the top 1000 tracks of that time period.
 #
 # Supported periods: overall, 7day, 1month, 3month, 6month, 12month
+#
+# Set track_order to sequential, if you prefer to select each artist's track
+# in most-played order descending. Tracks will be interleaved by artist.
+#
+# lastfm_page_size determines how many tracks are pulled from Last.fm
+# with each request.
+#
+# Additional artists may optionally be included via include_artists.
+# List them like this:
+#
+#  include_artists:
+#    - "Guster"
+#    - "Crowded House"
+#
 loves:
   artist_period: 1month
   top_artist_count: 5
   track_period: overall
   tracks_per_artist: 10
-  track_pool_size: 750
+  track_order: random
+  track_pool_size: 7100
   lastfm_page_size: 100
   playlist_id: "your-loves-playlist-id"
   include_artists: []
