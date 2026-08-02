@@ -136,15 +136,16 @@ function validateConfig(config) {
   const args = process.argv.slice(2);
   const validFlags = new Set(['--dry-run','--config']);
   const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
+
+  const errors = [];
+
   if (unknownFlags.length > 0) {
-    console.error(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
-    console.error('   Only valid flags are: --dry-run and --config');
-    process.exit(1);
+    errors.push(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
+    errors.push('   Only valid flags are: --dry-run and --config');
   }
 
   if (!config.loves) {
-    console.error('❌ Config file is missing the top-level "loves:" section.');
-    process.exit(1);
+    errors.push('❌ Config file is missing the top-level "loves:" section.');
   }
   
   const validPeriod = Object.keys(PERIOD_LABELS);
@@ -152,57 +153,52 @@ function validateConfig(config) {
   const includeArtists = config.loves.include_artists || [];
   
   if (!validPeriod.includes(config.loves.artist_period)) {
-    console.error('❌ Artist period must be one of 7day, 1month, 3month, 6month, 12month, or overall');
-    process.exit(1);
+    errors.push('❌ Artist period must be one of 7day, 1month, 3month, 6month, 12month, or overall');
   }
 
   if (!validPeriod.includes(config.loves.track_period)) {
-    console.error('❌ Track period must be one of 7day, 1month, 3month, 6month, 12month, or overall');
-    process.exit(1);
+    errors.push('❌ Track period must be one of 7day, 1month, 3month, 6month, 12month, or overall');
   }
 
   if (!Number.isInteger(topArtistCount) || topArtistCount < 0) {
-    console.error('❌ top_artist_count must be a non-negative integer');
-    process.exit(1);
+    errors.push('❌ top_artist_count must be a non-negative integer');
   }
   if (!Array.isArray(config.loves.include_artists ?? [])) {
-    console.error('❌ include_artists must be a list');
-    process.exit(1);
+    errors.push('❌ include_artists must be a list');
   }
   if (!(topArtistCount + includeArtists.length)) {
-    console.error('❌ No artists specified. Choose one or more include_artists or specify a top_artist_count greater than 0');
-    process.exit(1);
+    errors.push('❌ No artists specified. Choose one or more include_artists or specify a top_artist_count greater than 0');
   }
 
   if (!Number.isInteger(config.loves.tracks_per_artist) || config.loves.tracks_per_artist < 1) {
-    console.error('❌ tracks_per_artist must be a positive integer');
-    process.exit(1);
+    errors.push('❌ tracks_per_artist must be a positive integer');
   }
 
   if (!Number.isInteger(config.loves.tracks_per_artist) || config.loves.tracks_per_artist < 1) {
-    console.error('❌ tracks_per_artist must be a positive integer');
-    process.exit(1);
+    errors.push('❌ tracks_per_artist must be a positive integer');
   }
 
   const trackOrder = config.loves.track_order || 'random';
   const validOrder = new Set(['random','sequential']);
 
   if (!validOrder.has(trackOrder)) {
-    console.error('❌ Track order must be one of random or sequential');
-    process.exit(1);
+    errors.push('❌ Track order must be one of random or sequential');
   }
 
   if (!config.loves.playlist_id) {
-    console.error('❌ Must specify playlist_id in config file');
-    process.exit(1);
+    errors.push('❌ Must specify playlist_id in config file');
   }
   
   if (!Number.isInteger(config.loves.track_pool_size) || config.loves.track_pool_size < 1) {
-  console.error('❌ track_pool_size must be a positive integer');
-  process.exit(1);
+    errors.push('❌ track_pool_size must be a positive integer');
   }
   if (!Number.isInteger(config.loves.lastfm_page_size) || config.loves.lastfm_page_size < 1) {
-    console.error('❌ lastfm_page_size must be a positive integer');
+    errors.push('❌ lastfm_page_size must be a positive integer');
+  }
+
+  if (errors.length > 0) {
+    console.error('❌ Config validation failed:');
+    errors.forEach(e => console.error('   - ' + e));
     process.exit(1);
   }
   
