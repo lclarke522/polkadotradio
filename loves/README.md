@@ -101,7 +101,7 @@ If the search key is not found in the cache file, a Spotify search is performed,
 
 ### Overrides
 
-The `.spotify-track-overrides.json` file is the exact same format at the cache file. If you notice that Spotify repeatedly fails to find a particular track that know it has in its library, you can add it to the overrides file, so it can be found.
+The `.spotify-track-overrides.json` file is the exact same format at the cache file. If you notice that Spotify repeatedly fails to find a particular track that you know it has in its library, you can add it to the overrides file, so it can be found.
 
 For example, my "Wherever You Are" by Neil Finn scrobbles are misspelled as "Whereever You Are" for some reason. That is never going to be found at Spotify. So I've added this line to the overrides file:
 

@@ -32,6 +32,7 @@ const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 const TRACK_CACHE_FILE = path.join(ROOT_DIR, '.spotify-track-cache.json');
 const TRACK_OVERRIDES_FILE = path.join(ROOT_DIR, '.spotify-track-overrides.json');
+const TRACK_BLOCK_FILE = path.join(ROOT_DIR, '.spotify-track-blocklist.json');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -131,6 +132,12 @@ function validateConfig(config) {
 
   if (!config.destination_playlist_id || typeof config.destination_playlist_id !== 'string') {
     errors.push('destination_playlist_id is required and must be a string');
+  }
+
+  const trackOrder = config.track_order || 'random';
+  const validOrder = new Set(['random','sequential']);
+  if (!validOrder.has(trackOrder)) {
+    errors.push('❌ Track order must be one of random or sequential');
   }
 
   if (!Array.isArray(config.travelers) || config.travelers.length === 0) {
@@ -318,6 +325,17 @@ function shuffle(array) {
   return arr;
 }
 
+function interleave(lists) {
+  const result = [];
+  const maxLen = Math.max(0, ...lists.map(l => l.length));
+  for (let i = 0; i < maxLen; i++) {
+    for (const list of lists) {
+      if (i < list.length) result.push(list[i]);
+    }
+  }
+  return result;
+}
+
 function formatDuration(ms) {
   const totalSeconds = Math.floor(ms / 1000);
   const hours = Math.floor(totalSeconds / 3600);
@@ -339,26 +357,56 @@ function groupTracksByTraveler(tracks) {
   return grouped;
 }
 
-function selectTracks(tracks, targetMs, travelers) {
+function selectTracks(tracks, targetMs, travelers, trackOrder) {
   const tracksByTraveler = groupTracksByTraveler(tracks);
   const perTravelerTargetMs = targetMs / travelers.length;
 
   const selected = [];
+  let selectedTracks = [];
   let totalMs = 0;
 
+  if (trackOrder == 'random') {
+    for (const traveler of travelers) {
+      const pool = shuffle(tracksByTraveler.get(traveler.name) || []);
+      let travelerMs = 0;
+
+      for (const track of pool) {
+        if (travelerMs >= perTravelerTargetMs) break;
+        selected.push(track);
+        travelerMs += track.duration_ms;
+        totalMs += track.duration_ms;
+      }
+    }
+
+    selectedTracks = shuffle(selected);
+
+} else {
+  const travelerTrackLists = [];
+
   for (const traveler of travelers) {
-    const pool = shuffle(tracksByTraveler.get(traveler.name) || []);
+    const pool = tracksByTraveler.get(traveler.name) || []; // no sort — sequential = source order
+    const picked = [];
     let travelerMs = 0;
 
     for (const track of pool) {
       if (travelerMs >= perTravelerTargetMs) break;
-      selected.push(track);
+      picked.push(track);
       travelerMs += track.duration_ms;
       totalMs += track.duration_ms;
     }
+
+    if (picked.length === 0) {
+      console.log(`⚠️  No tracks selected for ${traveler.name}.`);
+    } else {
+      console.log(`  Selected ${picked.length} tracks for ${traveler.name} (${formatDuration(travelerMs)}).`);
+    }
+
+    travelerTrackLists.push(picked);
   }
 
-  return { selectedTracks: shuffle(selected), totalMs };
+  selectedTracks = interleave(travelerTrackLists);
+  }
+  return { selectedTracks, totalMs };
 }
 
 // ─── Spotify playlist update ──────────────────────────────────────────────────
@@ -417,14 +465,22 @@ async function main() {
   const dedupedTracks = dedupTracks(playlistTracks);
   console.log('✅ Removed duplicate tracks: ' + dedupedTracks.length + ' remaining.\n');
   
-  
-  
+  const trackBlocklist = loadTrackCache(TRACK_BLOCK_FILE);
+  const availableTracks = dedupedTracks.filter(t => {
+    const blocked = !!trackBlocklist[trackCacheKey(t)];
+    if (blocked) {
+      console.log('❌ Excluded from selection (blocklist):', t.name, 'by', t.artist);
+    }
+    return !blocked;
+  });
+    
   const targetMinutes = config.trip_duration_minutes || 120;
   const targetMinPerTraveler = targetMinutes / config.travelers.length;
   const targetMs = targetMinutes * 60 * 1000
+  const trackOrder = config.track_order || 'random';
 
-  console.log(`\n🔀 Selecting ~${targetMinPerTraveler} minutes of music for each traveler at random...`);
-  const { selectedTracks, totalMs } = selectTracks(dedupedTracks, targetMs, config.travelers);
+  console.log(`\n🔀 Selecting ~${targetMinPerTraveler} minutes of music ${trackOrder}ly for each traveler...`);
+  const { selectedTracks, totalMs } = selectTracks(availableTracks, targetMs, config.travelers, trackOrder);
   console.log(`   Selected ${selectedTracks.length} tracks (${formatDuration(totalMs)})`);
   
   if (DRY_RUN) {

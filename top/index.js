@@ -27,6 +27,7 @@ const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 const TRACK_CACHE_FILE = path.join(ROOT_DIR, '.spotify-track-cache.json');
 const TRACK_OVERRIDES_FILE = path.join(ROOT_DIR, '.spotify-track-overrides.json');
+const TRACK_BLOCK_FILE = path.join(ROOT_DIR, '.spotify-track-blocklist.json');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -229,22 +230,31 @@ async function main() {
 
   const lastfmTracks = await getLastFmTopTracks(credentials,config,topScope);
 
+  const trackBlocklist = loadTrackCache(TRACK_BLOCK_FILE);
+  const availableTracks = lastfmTracks.filter(t => {
+    const blocked = !!trackBlocklist[trackCacheKey(t)];
+    if (blocked) {
+      console.log('❌ Excluded from selection (blocklist):', t.name, 'by', t.artist);
+    }
+    return !blocked;
+  });
+
   if (DRY_RUN) {
-    logDryRun(lastfmTracks);
+    logDryRun(availableTracks);
     return;
   }
 
   const accessToken = await getAccessToken(credentials);
 
-  console.log(`   Resolving ${lastfmTracks.length} tracks against Spotify...`);
+  console.log(`   Resolving ${availableTracks.length} tracks against Spotify...`);
   const foundTracks = [];
   let resolvedCount = 0;
   let cacheHits = 0;
-const trackCache = loadTrackCache(TRACK_CACHE_FILE);
+  const trackCache = loadTrackCache(TRACK_CACHE_FILE);
   const trackOverrides = loadTrackCache(TRACK_OVERRIDES_FILE);
 
-  for (const track of lastfmTracks) {
-    const { resolved, fromCache } = await resolveTrackWithCache(track, accessToken, trackCache, trackOverrides);
+  for (const track of availableTracks) {
+    const { resolved, fromCache } = await resolveTrackWithCache(track, accessToken, trackCache, trackOverrides, trackBlocklist);
     if (fromCache) cacheHits++;
     
     if (resolved) {
@@ -253,7 +263,7 @@ const trackCache = loadTrackCache(TRACK_CACHE_FILE);
     }
   }
   saveTrackCache(trackCache, TRACK_CACHE_FILE);
-  console.log(`   Resolved ${resolvedCount}/${lastfmTracks.length} tracks (${cacheHits} from cache).`);
+  console.log(`   Resolved ${resolvedCount}/${availableTracks.length} tracks (${cacheHits} from cache).`);
 
   if (foundTracks.length === 0) {
     console.error('❌ No tracks found on Spotify. Aborting.');
