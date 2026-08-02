@@ -73,6 +73,64 @@ With this configuration, if one of your top artists is discovered to be Split En
 
 This allows you to expand the depth of the resulting playlist. Sometimes you like the music of a solo artist just as much as the music from the band that they are from, but that solo artist may not end up in your top artists as often as their band does. By grouping the solo artist and their band into an Artist Family, you can include both together in your generated playlist.
 
+## Cache, Overrides, and Blocking
+
+### Cache
+Anything that can reduce reliance on the Spotify API is a good thing. Enter Cache. All of the apps that use Spotify track searching use the root directory file `.spotify-track-cache.json` to keep the relevant information about a track and help us avoid a Spotify search. The file looks like this:
+
+```
+{
+  "innocence mission|bright as yellow": {
+    "uri": "spotify:track:6rbGpy1s1TniuQXsIBaQym",
+    "duration_ms": 212573
+  },
+  "lord huron|bag of bones": {
+    "uri": "spotify:track:3mXFTm5tC59wbnLfrQN5BX",
+    "duration_ms": 244661
+  },
+  "silver seas|alaska": {
+    "uri": "spotify:track:6nAtCKHpjAWPbsYb1OYAcG",
+    "duration_ms": 184852
+  }
+}
+```
+
+If the search key (`innocence mission|bright as yellow`) is found in the cache file, then the Spotify search is skipped for that track and the URL and duration from the cache file are used.
+
+If the search key is not found in the cache file, a Spotify search is performed, and the cache file is updated for the next time.
+
+### Overrides
+
+The `.spotify-track-overrides.json` file is the exact same format at the cache file. If you notice that Spotify repeatedly fails to find a particular track that know it has in its library, you can add it to the overrides file, so it can be found.
+
+For example, my "Wherever You Are" by Neil Finn scrobbles are misspelled as "Whereever You Are" for some reason. That is never going to be found at Spotify. So I've added this line to the overrides file:
+
+```
+  "neil finn|whereever you are": {
+    "uri": "spotify:track:5Z8hVdiQobfzd0IHM07qS1",
+    "duration_ms": 286000
+  }
+```
+
+Now I don't need Spotify search since I have the URI for the song.
+
+### Blocking
+
+There may be songs you listen to a lot in a particular context, but you don't want them to be part of your Loved Artists playlist.
+
+For example, say you listen to instrumental music while you work, or quiet music at bedtime. These things may show up in your most-listened charts at Last.fm, but they're not appropriate for a playlist full of songs you love.
+
+Add them to the blocklist.
+
+```
+  "guster|donde esta santa claus": {
+    "uri": "spotify:track:72rF5P7PbqUUg2yiYpMWEv",
+    "duration_ms": 140000
+  }
+```
+
+I've added "Donde Esta Santa Claus" by Guster to my blocklist, because while I enjoy their version of that song in December, I don't want to hear it in July. I can remove it from the blocklist if I want to at the appropriate time of the year.
+
 ## Usage
 
 ```bash
