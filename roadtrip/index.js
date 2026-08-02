@@ -369,13 +369,22 @@ function selectTracks(tracks, targetMs, travelers, trackOrder) {
     for (const traveler of travelers) {
       const pool = shuffle(tracksByTraveler.get(traveler.name) || []);
       let travelerMs = 0;
+      const picked = [];
 
       for (const track of pool) {
         if (travelerMs >= perTravelerTargetMs) break;
-        selected.push(track);
+        picked.push(track);
         travelerMs += track.duration_ms;
         totalMs += track.duration_ms;
       }
+
+      if (picked.length === 0) {
+        console.log(`⚠️  No tracks selected for ${traveler.name}.`);
+      } else {
+        console.log(`  Selected ${picked.length} tracks for ${traveler.name} (${formatDuration(travelerMs)}).`);
+      }
+
+      selected.push(...picked);
     }
 
     selectedTracks = shuffle(selected);
