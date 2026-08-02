@@ -14,8 +14,9 @@ roadtrip/sources/*
 state.json
 *.state
 cursors.json
+.spotify-track-blocklist.json
 .spotify-track-cache.json
-.spotify-track-override.json
+.spotify-track-overrides.json
 
 # Cron logs
 */log.txt

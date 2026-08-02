@@ -31,6 +31,7 @@ const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 const TRACK_CACHE_FILE = path.join(ROOT_DIR, '.spotify-track-cache.json');
 const TRACK_OVERRIDES_FILE = path.join(ROOT_DIR, '.spotify-track-overrides.json');
+const TRACK_BLOCK_FILE = path.join(ROOT_DIR, '.spotify-track-blocklist.json');
 const FAMILIES_FILE = path.join(APP_DIR, 'families-config.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
@@ -501,13 +502,22 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
 
   const dedupedTracks = dedupTracks(filteredTracks);
   console.log('✅ Removed duplicate tracks: ' + dedupedTracks.length + ' remaining.\n');
+
+  const trackBlocklist = loadTrackCache(TRACK_BLOCK_FILE);
+  const availableTracks = dedupedTracks.filter(t => {
+    const blocked = !!trackBlocklist[trackCacheKey(t)];
+    if (blocked) {
+      console.log('❌ Excluded from selection (blocklist):', t.name, 'by', t.artist);
+    }
+    return !blocked;
+  });
   
   const tracksPerArtist = config.loves.tracks_per_artist;
   const trackOrder = config.loves.track_order || 'random';
   const artistTrackLists = [];
 
   for (const artist of finalArtists) {
-    const candidates = dedupedTracks.filter(t => {
+    const candidates = availableTracks.filter(t => {
       const mbidMatch = artist.mbid && t.artistMbid === artist.mbid;
       const nameMatch = artist.matchkeys.includes(t.artistMatchkey);
       return mbidMatch || nameMatch;
@@ -548,7 +558,7 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
   const trackOverrides = loadTrackCache(TRACK_OVERRIDES_FILE);
 
   for (const lastfmTrack of lastfmTracks) {
-    const { resolved, fromCache } = await resolveTrackWithCache(lastfmTrack, accessToken, trackCache, trackOverrides);
+    const { resolved, fromCache } = await resolveTrackWithCache(lastfmTrack, accessToken, trackCache, trackOverrides, trackBlocklist);
     if (fromCache) cacheHits++;
     
     if (resolved) {
