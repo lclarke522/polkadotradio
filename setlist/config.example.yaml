@@ -1,0 +1,24 @@
+# Copy this file to top/config.yaml.
+
+# Fill in the details for any of the variations
+# you wish to use. Create the empty playlists first,
+# and right-click > Share > Copy link to get the 
+# playlist ID. The ID is the part after "playlist/"
+# in the URL. You can change the track counts, too.
+
+topall:
+  playlist_id: "Your top all-time playlist ID"
+  track_count: 250
+
+topyear:
+  playlist_id: "Your top 12-month playlist ID"
+  track_count: 100
+
+topmonth:
+  playlist_id: "Your top 30-day playlist ID"
+  track_count: 40
+
+topweek:
+  playlist_id: "Your top 7-day playlist ID"
+  track_count: 5
+
