@@ -1,0 +1,6 @@
+# Copy this file to config.yaml and fill in the details
+
+target_id: "Playlist ID for your target playlist"
+setlists:
+  - display_name: "Description of the Concert"
+    setlist_id: "ID for your source setlist"
