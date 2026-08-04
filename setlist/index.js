@@ -1,20 +1,17 @@
 #!/usr/bin/env node
 
-// top/index.js
-// Polka Dot Radio Top Tracks by Lisa R. Clarke
-// Fetches your top tracks from Last.fm and updates a Spotify playlist.
+// setlist/index.js
+// Polka Dot Radio Setlist Save by Lisa R. Clarke
+// Fetches the specified set lists from setlist.fm and updates a Spotify playlist.
 //
-// Usage: node top/index.js         (defaults to month mode)
-//        node top/index.js --week
-//        node top/index.js --month
-//        node top/index.js --year
-//        node top/index.js --all
+// Usage: node setlist/index.js
+//        node setlist/index.js --dry-run
 
 const fs = require('fs');
 const yaml = require('js-yaml');
 const path = require('path');
 const { safeParseJSON, request, sleep } = require('../lib/http');
-const { spotifyGet, spotifyPut, spotifyPost, resolveTrackWithCache, loadTrackCache, saveTrackCache, trackCacheKey } = require('../lib/spotify');
+const { spotifyGet, spotifyPut, spotifyPost, resolveTrackWithCache, loadTrackCache, saveTrackCache } = require('../lib/spotify');
 const { logDryRun } = require('../lib/dryRun');
 
 // ─── Config ───────────────────────────────────────────────────────────────────
@@ -27,7 +24,6 @@ const CREDENTIALS_FILE = path.join(ROOT_DIR, 'credentials.yaml');
 const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 const TRACK_CACHE_FILE = path.join(ROOT_DIR, '.spotify-track-cache.json');
 const TRACK_OVERRIDES_FILE = path.join(ROOT_DIR, '.spotify-track-overrides.json');
-const TRACK_BLOCK_FILE = path.join(ROOT_DIR, '.spotify-track-blocklist.json');
 
 const DRY_RUN = process.argv.includes('--dry-run');
 
@@ -58,39 +54,6 @@ function loadToken() {
 function saveToken(tokenData) {
   fs.writeFileSync(TOKEN_FILE, JSON.stringify(tokenData, null, 2));
 }
-
-function getTopScope(config) {
-  const args = process.argv.slice(2);
-  const validFlags = new Set(['--year', '--month', '--week', '--all', '--dry-run']);
-  const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
-  if (unknownFlags.length > 0) {
-    console.error(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
-    console.error('   Valid options are: --year, --month, --week, --all');
-    process.exit(1);
-  }
-  const selectedFlags = [
-    { passed: args.includes('--year'), key: 'topyear', period: '12month', label: 'of the last 12 months' },
-    { passed: args.includes('--month'), key: 'topmonth', period: '1month', label: 'of the last 30 days' },
-    { passed: args.includes('--week'), key: 'topweek', period: '7day', label: 'of the last 7 days' },
-    { passed: args.includes('--all'), key: 'topall', period: 'overall', label: 'for all time' },
-  ].filter(option => option.passed);
-  if (selectedFlags.length > 1) {
-    console.error('❌ Please choose only one of: --year, --month, --week, --all');
-    process.exit(1);
-  }
-  const selected = selectedFlags[0] ?? {
-    key: 'topmonth',
-    period: '1month',
-    label: 'in the last 30 days',
-  };
-  return {
-    scope: config[selected.key],
-    period: selected.period,
-    periodTxt: selected.label,
-  };
-}
-
-
 
 // ─── Spotify auth ─────────────────────────────────────────────────────────────
 
@@ -142,40 +105,78 @@ async function getAccessToken(credentials) {
   return newToken.access_token;
 }
 
-// ─── Last.fm ──────────────────────────────────────────────────────────────────
+// ─── Setlist.fm ───────────────────────────────────────────────────────────────
 
-async function getLastFmTopTracks(credentials,config,topScope) {
-
-  const { scope, period, periodTxt } = topScope;
-
-  const limit = scope.track_count || 100;
-  console.log('🎵 Fetching ' + limit + ' top track(s) ' + periodTxt + ' for ' + credentials.lastfm.username + ' from Last.fm...');
-
+async function fetchSetlist(setlistId, apiKey, attempt = 1) {
   const res = await request({
-    hostname: 'ws.audioscrobbler.com',
-    path: '/2.0/?method=user.getTopTracks' +
-      '&user=' + encodeURIComponent(credentials.lastfm.username) +
-      '&period=' + period +
-      '&limit=' + limit +
-      '&api_key=' + credentials.lastfm.api_key +
-      '&format=json',
+    hostname: 'api.setlist.fm',
+    path: '/rest/1.0/setlist/' + setlistId,
     method: 'GET',
+    headers: {
+      'x-api-key': apiKey,
+      'Accept': 'application/json',
+    },
   });
 
-  const data = safeParseJSON(res, 'Last.fm getTopTracks');
-  if (data.error) {
-    console.error('❌ Last.fm error ' + data.error + ': ' + data.message);
-    process.exit(1);
+  if (res.status === 429 && attempt <= 3) {
+    const retryAfterSec = parseInt((res.headers && res.headers['retry-after']) || '2', 10);
+    console.log('   ⏳ Rate limited, waiting ' + retryAfterSec + 's before retry ' + attempt + '/3...');
+    await sleep(retryAfterSec * 1000);
+    return fetchSetlist(setlistId, apiKey, attempt + 1);
   }
 
-  const tracks = data.toptracks.track;
-  console.log('✅ Got ' + tracks.length + ' tracks from Last.fm');
-  return tracks.map(t => ({
-    name: t.name,
-    artist: t.artist.name.replace(/\s*\(from .+?\)\s*$/i, '').trim(),
-    playcount: parseInt(t.playcount, 10),
-    rank: parseInt(t['@attr'].rank, 10),
-  }));
+  if (res.status !== 200) {
+    console.error('❌ Setlist fetch failed for ID ' + setlistId + ' (HTTP ' + res.status + '):', res.raw);
+    return null;
+  }
+
+  return safeParseJSON(res, 'setlist.fm setlist ' + setlistId);
+}
+
+function flattenSetlistSongs(setlistData) {
+  const mainArtist = setlistData.artist ? setlistData.artist.name : null;
+  const sets = (setlistData.sets && setlistData.sets.set) || [];
+
+  const tracks = [];
+  for (const set of sets) {
+    const songs = set.song || [];
+    for (const song of songs) {
+      if (!song.name) continue;
+      const artist = song.with ? song.with.name : mainArtist;
+      tracks.push({ name: song.name, artist });
+    }
+  }
+  return tracks;
+}
+
+async function getSetlistFmTracks(credentials, config) {
+  const apiKey = credentials.setlistfm.api_key;
+  const allTracks = [];
+
+  for (let i = 0; i < config.setlists.length; i++) {
+    const setlist = config.setlists[i];
+    console.log('🎵 Fetching setlist for ' + setlist.display_name + ' from Setlist.fm...');
+
+    const data = await fetchSetlist(setlist.setlist_id, apiKey);
+    if (!data) {
+      console.error('   Skipping this setlist.');
+      continue;
+    }
+
+    const tracks = flattenSetlistSongs(data);
+    if (tracks.length === 0) {
+      console.log('   ⚠️  Setlist fetched successfully, but no songs are listed (may not be submitted to setlist.fm yet).');
+    } else {
+      console.log('   Found ' + tracks.length + ' songs.');
+    }
+    allTracks.push(...tracks);
+
+    if (i < config.setlists.length - 1) {
+      await sleep(600);
+    }
+  }
+
+  return allTracks;
 }
 
 // ─── Spotify playlist update ──────────────────────────────────────────────────
@@ -223,38 +224,27 @@ async function main() {
   const config = loadConfig();
   const credentials = loadCredentials();
 
-  const topScope = getTopScope(config);
-  console.log('\n🎧 Top',topScope.scope.track_count,'tracks',topScope.periodTxt,'— Starting run at', new Date().toLocaleString());
+  console.log('\n🎤 Setlist Save — Starting run at', new Date().toLocaleString());
   console.log('─'.repeat(50));
 
-
-  const lastfmTracks = await getLastFmTopTracks(credentials,config,topScope);
-
-  const trackBlocklist = loadTrackCache(TRACK_BLOCK_FILE);
-  const availableTracks = lastfmTracks.filter(t => {
-    const blocked = !!trackBlocklist[trackCacheKey(t)];
-    if (blocked) {
-      console.log('❌ Excluded from selection (blocklist):', t.name, 'by', t.artist);
-    }
-    return !blocked;
-  });
+  const setlistTracks = await getSetlistFmTracks(credentials, config);
 
   if (DRY_RUN) {
-    logDryRun(availableTracks);
+    logDryRun(setlistTracks);
     return;
   }
 
   const accessToken = await getAccessToken(credentials);
 
-  console.log(`   Resolving ${availableTracks.length} tracks against Spotify...`);
+  console.log(`   Resolving ${setlistTracks.length} tracks against Spotify...`);
   const foundTracks = [];
   let resolvedCount = 0;
   let cacheHits = 0;
   const trackCache = loadTrackCache(TRACK_CACHE_FILE);
   const trackOverrides = loadTrackCache(TRACK_OVERRIDES_FILE);
 
-  for (const track of availableTracks) {
-    const { resolved, fromCache } = await resolveTrackWithCache(track, accessToken, trackCache, trackOverrides, trackBlocklist);
+  for (const track of setlistTracks) {
+    const { resolved, fromCache } = await resolveTrackWithCache(track, accessToken, trackCache, trackOverrides);
     if (fromCache) cacheHits++;
     
     if (resolved) {
@@ -263,15 +253,14 @@ async function main() {
     }
   }
   saveTrackCache(trackCache, TRACK_CACHE_FILE);
-  console.log(`   Resolved ${resolvedCount}/${availableTracks.length} tracks (${cacheHits} from cache).`);
+  console.log(`   Resolved ${resolvedCount}/${setlistTracks.length} tracks (${cacheHits} from cache).`);
 
   if (foundTracks.length === 0) {
     console.error('❌ No tracks found on Spotify. Aborting.');
     process.exit(1);
   }
 
-  await updatePlaylist(topScope.scope.playlist_id, foundTracks.map(t => t.uri), accessToken);
-  console.log('\n🎉 Done! Your Top',topScope.scope.track_count,'playlist has been updated.');
+  await updatePlaylist(config.target_id, foundTracks.map(t => t.uri), accessToken);  console.log('\n🎉 Done! Your Setlist Save playlist has been updated.');
   console.log('   Tracks added: ' + foundTracks.length);
   console.log('─'.repeat(50) + '\n');
 }
