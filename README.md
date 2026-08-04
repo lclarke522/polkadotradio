@@ -14,6 +14,7 @@ At the moment, the repository includes three main scripts:
 - `top/index.js`--**Top Tracks**: create playlists from your Last.fm listening charts for one week, one month, one year, or all time
 - `loves/index.js`--**Loved Artists**: create playlists comprised of random songs you've played before from your most-listened to artists
 - `roadtrip/index.js`--**Road Trip Radio**: create a master playlist, seeded from a number of playlists provided by travelers in your party
+- `setlist/index.js`--**Setlist Save**: create a playlist from one or more Setlist.fm concert set lists.
 
 
 ## Requirements
