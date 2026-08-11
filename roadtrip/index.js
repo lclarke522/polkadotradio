@@ -134,12 +134,17 @@ function validateConfig(config) {
     errors.push('destination_playlist_id is required and must be a string');
   }
 
-  const trackOrder = config.track_order || 'random';
-  const validOrder = new Set(['random','sequential']);
-  if (!validOrder.has(trackOrder)) {
-    errors.push('❌ Track order must be one of random or sequential');
+  const sourceTrackOrder = config.source_track_order || 'random';
+  const sourceOrder = new Set(['random','sequential']);
+  if (!sourceOrder.has(sourceTrackOrder)) {
+    errors.push('❌ Source track order must be one of random or sequential');
   }
-
+  const destinationTrackOrder = config.destination_track_order || 'random';
+  const destinationOrder = new Set(['random','alternating']);
+  if (!destinationOrder.has(destinationTrackOrder)) {
+    errors.push('❌ Destination track order must be one of random or alternating');
+  }
+  
   if (!Array.isArray(config.travelers) || config.travelers.length === 0) {
     errors.push('travelers must be a non-empty array');
   } else {
@@ -357,45 +362,20 @@ function groupTracksByTraveler(tracks) {
   return grouped;
 }
 
-function selectTracks(tracks, targetMs, travelers, trackOrder) {
+function selectTracks(tracks, targetMs, travelers, sourceTrackOrder, destinationTrackOrder) {
   const tracksByTraveler = groupTracksByTraveler(tracks);
   const perTravelerTargetMs = targetMs / travelers.length;
 
-  const selected = [];
+  const selectedByTraveler = [];   // <-- array of arrays now
   let selectedTracks = [];
   let totalMs = 0;
-
-  if (trackOrder == 'random') {
-    for (const traveler of travelers) {
-      const pool = shuffle(tracksByTraveler.get(traveler.name) || []);
-      let travelerMs = 0;
-      const picked = [];
-
-      for (const track of pool) {
-        if (travelerMs >= perTravelerTargetMs) break;
-        picked.push(track);
-        travelerMs += track.duration_ms;
-        totalMs += track.duration_ms;
-      }
-
-      if (picked.length === 0) {
-        console.log(`⚠️  No tracks selected for ${traveler.name}.`);
-      } else {
-        console.log(`  Selected ${picked.length} tracks for ${traveler.name} (${formatDuration(travelerMs)}).`);
-      }
-
-      selected.push(...picked);
-    }
-
-    selectedTracks = shuffle(selected);
-
-} else {
-  const travelerTrackLists = [];
+  let pool = [];
 
   for (const traveler of travelers) {
-    const pool = tracksByTraveler.get(traveler.name) || []; // no sort — sequential = source order
-    const picked = [];
+    if (sourceTrackOrder == 'random') { pool = shuffle(tracksByTraveler.get(traveler.name) || []); }
+    else { pool = tracksByTraveler.get(traveler.name) || []; }
     let travelerMs = 0;
+    const picked = [];
 
     for (const track of pool) {
       if (travelerMs >= perTravelerTargetMs) break;
@@ -407,14 +387,18 @@ function selectTracks(tracks, targetMs, travelers, trackOrder) {
     if (picked.length === 0) {
       console.log(`⚠️  No tracks selected for ${traveler.name}.`);
     } else {
-      console.log(`  Selected ${picked.length} tracks for ${traveler.name} (${formatDuration(travelerMs)}).`);
+      console.log(`   Selected ${picked.length} tracks for ${traveler.name} (${formatDuration(travelerMs)}).`);
     }
 
-    travelerTrackLists.push(picked);
+    selectedByTraveler.push(picked);   // <-- push the sub-array itself, not spread
   }
 
-  selectedTracks = interleave(travelerTrackLists);
+  if (destinationTrackOrder == 'random') {
+    selectedTracks = shuffle(selectedByTraveler.flat());
+  } else {
+    selectedTracks = interleave(selectedByTraveler);
   }
+
   return { selectedTracks, totalMs };
 }
 
@@ -486,11 +470,16 @@ async function main() {
   const targetMinutes = config.trip_duration_minutes || 120;
   const targetMinPerTraveler = targetMinutes / config.travelers.length;
   const targetMs = targetMinutes * 60 * 1000
-  const trackOrder = config.track_order || 'random';
+  const sourceTrackOrder = config.source_track_order || 'random';
+  const destinationTrackOrder = config.destination_track_order || 'random';
 
-  console.log(`\n🔀 Selecting ~${targetMinPerTraveler} minutes of music ${trackOrder}ly for each traveler...`);
-  const { selectedTracks, totalMs } = selectTracks(availableTracks, targetMs, config.travelers, trackOrder);
-  console.log(`   Selected ${selectedTracks.length} tracks (${formatDuration(totalMs)})`);
+  console.log(`\n🔀 Selecting ~${targetMinPerTraveler} minutes of music ${sourceTrackOrder}ly for each traveler...`);
+  const { selectedTracks, totalMs } = selectTracks(availableTracks, targetMs, config.travelers, sourceTrackOrder, destinationTrackOrder);
+  if (destinationTrackOrder == 'random') {
+    console.log(`   Selected ${selectedTracks.length} tracks (${formatDuration(totalMs)}), and saved in random order`);
+  } else {
+    console.log(`   Selected ${selectedTracks.length} tracks (${formatDuration(totalMs)}), and saved alternating by traveler`);
+  }
   
   if (DRY_RUN) {
     logDryRun(selectedTracks);

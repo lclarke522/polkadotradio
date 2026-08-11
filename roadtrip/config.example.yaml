@@ -6,13 +6,14 @@
 # Tracks may be submitted in spotify playlist form, in .m3u format, or in a text
 # file where tracks are listed one per line as "artist - track"
 #
-# The destination playlist may be comprised of randomly selected tracks in random
-# order, or in sequential order as they appear in the source playlists and interleaved
-# by traveler.
+# source_track_order is either "random" or "sequential"
+# destination_track_order is either "random" or "alternating"
+#
 
 trip_duration_minutes: 480
 destination_playlist_id: "spotify_playlist_id_here"
-track_order: sequential
+source_track_order: random
+destination_track_order: random
 
 travelers:
   - name: Mom

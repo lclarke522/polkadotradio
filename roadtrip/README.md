@@ -17,6 +17,8 @@ You will need the following information for your config file:
 ```
 trip_duration_minutes: 480
 destination_playlist_id: "spotify_playlist_id_here"
+source_track_order: random
+destination_track_order: random
 
 travelers:
   - name: Mom
@@ -50,6 +52,16 @@ https://open.spotify.com/playlist/1234567890A1234567890Z?si=a123b456c789
 ```
 
 The playlist ID in this example would be `1234567890A1234567890Z`.
+
+## Track Order
+
+You can specify the track order for the source playlists and the destination playlists. 
+
+Tracks can be selected from the source playlists in one of two orders: "random" or "sequential."
+
+Tracks can be saved to the destination playlist in one of two orders: "random" or "alternating" by traveler.
+
+If track orders are not specified, "random" is assumed. 
 
 ## Source Types
 

@@ -21,3 +21,6 @@ cursors.json
 # Cron logs
 */log.txt
 *log.txt
+
+# Node stuff
+/node_modules
