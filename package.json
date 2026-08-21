@@ -3,14 +3,8 @@
   "version": "1.0.0",
   "description": "Tools for building customized Spotify playlists",
   "main": "daily.js",
-  "keywords": ["spotify", "daily-drive", "playlist", "podcast", "automation", "custom", "lastfm"],
+  "keywords": ["spotify", "daily-drive", "playlist", "podcast", "automation", "custom", "lastfm", "setlistfm", "setlist"],
   "license": "MIT",
-  "scripts": {
-    "setup": "node setup.js",
-    "daily": "node daily/index.js",
-    "top": "node top/index.js",
-    "loves": "node loves/index.js"
-  },
   "dependencies": {
     "js-yaml": "^4.1.0",
     "spotify-web-api-node": "^5.0.2",
