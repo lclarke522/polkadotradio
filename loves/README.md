@@ -17,12 +17,14 @@ You will need the following information for your config file:
 ```
 loves:
   artist_period: 1month
-  top_artist_count: 5
+  top_artist_count: 10
   track_period: overall
   tracks_per_artist: 10
-  track_pool_size: 750
+  track_pool_order: random
+  track_pool_size: 2500
   lastfm_page_size: 100
   playlist_id: "your-loves-playlist-id"
+  playlist_order: alternating
   include_artists: []
 ```
 
@@ -30,7 +32,7 @@ The example above does the following:
 - Get your five most-listened-to artists of the past month according to Last.fm
 - Get your 750 most-listened-to tracks of all time according to Last.fm
 - Pull up to 10 random songs for each of the five artists from the 750 tracks
-- Randomize them and save them to a Spotify playlist
+- Save them to a Spotify playlist, alternating through the list of artists
 
 If you wanted to also include artists that may not be in your top five, you could specify them under `include_artists`, like so:
 ```
@@ -38,6 +40,8 @@ If you wanted to also include artists that may not be in your top five, you coul
     - "The Eagles"
     - "Duran Duran"
 ```
+`track_pool_order` defaults to `random` but also accepts a value of `sequential`, if you wish to select tracks in most-listened order.
+`playlist_order` defaults to `random` but also accepts a value of `alternating`, if you wish to interleave tracks by artist.
 
 You'll need a playlist ID for the playlist you want to generate and it needs to exist. The script won't create it for you. 
 To find a playlist ID on Spotify, click the playlist's three-dot menu, click **Share** followed by **Copy Link to Playlist** or **Copy Link**. The link will look something like one of these two strings:

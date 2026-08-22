@@ -12,8 +12,11 @@
 #
 # Supported periods: overall, 7day, 1month, 3month, 6month, 12month
 #
-# Set track_order to sequential, if you prefer to select each artist's track
-# in most-played order descending. Tracks will be interleaved by artist.
+# Set track_pool_order to sequential, if you prefer to select each artist's track
+# in most-played order descending. Default is random.
+# 
+# Set playlist_order to alternating to have tracks interleaved by artist. Default
+# is random.
 #
 # lastfm_page_size determines how many tracks are pulled from Last.fm
 # with each request.
@@ -27,11 +30,12 @@
 #
 loves:
   artist_period: 1month
-  top_artist_count: 5
+  top_artist_count: 10
   track_period: overall
   tracks_per_artist: 10
-  track_order: random
-  track_pool_size: 7100
+  track_pool_order: random
+  track_pool_size: 2500
   lastfm_page_size: 100
   playlist_id: "your-loves-playlist-id"
+  playlist_order: alternating
   include_artists: []
