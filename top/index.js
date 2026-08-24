@@ -30,6 +30,7 @@ const TRACK_OVERRIDES_FILE = path.join(ROOT_DIR, '.spotify-track-overrides.json'
 const TRACK_BLOCK_FILE = path.join(ROOT_DIR, '.spotify-track-blocklist.json');
 
 const DRY_RUN = process.argv.includes('--dry-run');
+const IGNORE_BLOCKLIST = process.argv.includes('--ignore-blocklist');
 
 function loadCredentials() {
   if (!fs.existsSync(CREDENTIALS_FILE)) {
@@ -61,11 +62,11 @@ function saveToken(tokenData) {
 
 function getTopScope(config) {
   const args = process.argv.slice(2);
-  const validFlags = new Set(['--year', '--month', '--week', '--all', '--dry-run']);
+  const validFlags = new Set(['--year', '--month', '--week', '--all', '--dry-run', '--ignore-blocklist']);
   const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
   if (unknownFlags.length > 0) {
     console.error(`❌ Unknown option(s): ${unknownFlags.join(', ')}`);
-    console.error('   Valid options are: --year, --month, --week, --all');
+    console.error('   Valid options are: --year, --month, --week, --all, --dry-run, --ignore-blocklist');
     process.exit(1);
   }
   const selectedFlags = [
@@ -230,7 +231,8 @@ async function main() {
 
   const lastfmTracks = await getLastFmTopTracks(credentials,config,topScope);
 
-  const trackBlocklist = loadTrackCache(TRACK_BLOCK_FILE);
+  let trackBlocklist = [];
+  if (!IGNORE_BLOCKLIST) { trackBlocklist = loadTrackCache(TRACK_BLOCK_FILE); }
   const availableTracks = lastfmTracks.filter(t => {
     const blocked = !!trackBlocklist[trackCacheKey(t)];
     if (blocked) {

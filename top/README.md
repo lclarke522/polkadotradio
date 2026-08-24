@@ -109,10 +109,12 @@ Add them to the blocklist.
 
 I've added "Donde Esta Santa Claus" by Guster to my blocklist, because while I enjoy their version of that song in December, I don't want to hear it in July. I can remove it from the blocklist if I want to at the appropriate time of the year.
 
+The blocklist applies to all of the polkadotradio scripts. If you don't want to use it with Top Tracks, use the `--ignore-blocklist` flag.
+
 ## Usage
 
 ```bash
-node top/index.js [--week|--month|--year|--all] [--dry-run]
+node top/index.js [--week|--month|--year|--all] [--dry-run] [--ignore-blocklist]
 ```
 
 #### Example
