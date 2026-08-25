@@ -55,6 +55,7 @@ const SCOPES = [
   'playlist-modify-private',
   'playlist-read-private',
   'playlist-read-collaborative',
+  'user-library-read',
 ];
 
 // ─── Start a tiny web server to catch the callback ────────────────────────────
