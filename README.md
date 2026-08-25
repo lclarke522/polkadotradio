@@ -15,7 +15,7 @@ At the moment, the repository includes three main scripts:
 - `loves/index.js`--**Loved Artists**: create playlists comprised of random songs you've played before from your most-listened to artists
 - `roadtrip/index.js`--**Road Trip Radio**: create a master playlist, seeded from a number of playlists provided by travelers in your party
 - `setlist/index.js`--**Setlist Save**: create a playlist from one or more Setlist.fm concert set lists.
-
+- `likes/index.js`--**Spotify Likes**: build a cache of the tracks that you liked on Spotify, which can be referenced by the other scripts.
 
 ## Requirements
 
