@@ -32,9 +32,11 @@ const TOKEN_FILE = path.join(ROOT_DIR, '.spotify-token.json');
 const TRACK_CACHE_FILE = path.join(ROOT_DIR, '.spotify-track-cache.json');
 const TRACK_OVERRIDES_FILE = path.join(ROOT_DIR, '.spotify-track-overrides.json');
 const TRACK_BLOCK_FILE = path.join(ROOT_DIR, '.spotify-track-blocklist.json');
+const TRACK_LIKED_FILE = path.join(ROOT_DIR, '.spotify-track-liked.json');
 const FAMILIES_FILE = path.join(APP_DIR, 'families-config.yaml');
 
 const DRY_RUN = process.argv.includes('--dry-run');
+const LIKED_ONLY = process.argv.includes('--liked-only');
 
 const PERIOD_LABELS = {
   '7day': 'for the last 7 days',
@@ -135,7 +137,7 @@ async function getAccessToken(credentials) {
 
 function validateConfig(config) {
   const args = process.argv.slice(2);
-  const validFlags = new Set(['--dry-run','--config']);
+  const validFlags = new Set(['--dry-run', '--config', '--liked-only']);
   const unknownFlags = args.filter(arg => arg.startsWith('--') && !validFlags.has(arg));
 
   const errors = [];
@@ -509,12 +511,19 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
   console.log('✅ Removed duplicate tracks: ' + dedupedTracks.length + ' remaining.\n');
 
   const trackBlocklist = loadTrackCache(TRACK_BLOCK_FILE);
+  const likedCache = LIKED_ONLY ? loadTrackCache(TRACK_LIKED_FILE) : {};
+
   const availableTracks = dedupedTracks.filter(t => {
     const blocked = !!trackBlocklist[trackCacheKey(t)];
     if (blocked) {
       console.log('❌ Excluded from selection (blocklist):', t.name, 'by', t.artist);
+      return false;
     }
-    return !blocked;
+    if (LIKED_ONLY && !likedCache[trackCacheKey(t)]) {
+      console.log('❌ Excluded from selection (unliked):', t.name, 'by', t.artist);
+      return false;
+    }
+    return true;
   });
   
   const tracksPerArtist = config.loves.tracks_per_artist;
@@ -564,9 +573,22 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
   const trackOverrides = loadTrackCache(TRACK_OVERRIDES_FILE);
 
   for (const lastfmTrack of lastfmTracks) {
+    const likedMatch = likedCache[trackCacheKey(lastfmTrack)];
+    if (likedMatch) {
+      foundTracks.push({
+        uri: likedMatch.uri,
+        name: lastfmTrack.name,
+        artist: lastfmTrack.artist,
+        duration_ms: likedMatch.duration_ms,
+      });
+      resolvedCount++;
+      cacheHits++;
+      continue;
+    } 
+    
     const { resolved, fromCache } = await resolveTrackWithCache(lastfmTrack, accessToken, trackCache, trackOverrides, trackBlocklist);
     if (fromCache) cacheHits++;
-    
+
     if (resolved) {
       foundTracks.push({
         uri: resolved.uri,
@@ -577,6 +599,7 @@ const claimedFamilies = new Map(); // familyName -> finalArtists index that "own
       resolvedCount++;
     }
   }
+
   saveTrackCache(trackCache,TRACK_CACHE_FILE);
   console.log(`   Resolved ${resolvedCount}/${lastfmTracks.length} tracks (${cacheHits} from cache).`);
 

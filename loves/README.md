@@ -138,7 +138,7 @@ I've added "Donde Esta Santa Claus" by Guster to my blocklist, because while I e
 ## Usage
 
 ```bash
-node loves/index.js [--dry-run] [--config <config-file>]
+node loves/index.js [--dry-run] [--config <config-file>] [--liked-only]
 ```
 
 #### Examples
@@ -151,6 +151,12 @@ node loves/index.js --dry-run
 Create a config file called `concert-config.yaml` and add every artist performing at an upcoming music festival to `include_artists`. Then run the script using that config file so you have a pre-concert playlist to listen to in the car on the way there:
 ```bash
 node loves/index.js --config --concert-config.yaml
+```
+
+Create a playlist of most-listened-to tracks from your most-listened-to artists, but only include tracks you have "liked" on Spotify.
+
+```bash
+node loves/index.js --liked-only
 ```
 
 ## Example playlist
